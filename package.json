@@ -1,7 +1,7 @@
 {
-  "name": "probot-app",
+  "name": "ytsubtitles-bot",
   "version": "1.0.0",
-  "description": "probot app",
+  "description": "A bot for git repo immoonancient/YTSubtitles",
   "main": "index.js",
   "dependencies": {
     "express": "^4.17.1",
@@ -13,5 +13,5 @@
     "start": "probot run ./index.js"
   },
   "author": "Xiaocheng Hu",
-  "license": "ISC"
+  "license": "MIT"
 }
