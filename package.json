@@ -1,0 +1,17 @@
+{
+  "name": "probot-app",
+  "version": "1.0.0",
+  "description": "probot app",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.17.1",
+    "probot": "^9.5.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test",
+    "start": "probot run ./index.js"
+  },
+  "author": "Xiaocheng Hu",
+  "license": "ISC"
+}
