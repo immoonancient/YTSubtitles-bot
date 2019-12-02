@@ -1,3 +1,5 @@
+const Hinter = require('./hinter.js');
+
 const channelLabels = [
   '测试作者',
   '美食作家王刚',
@@ -115,9 +117,28 @@ function getSubtitleRequestBody(message) {
   return message.substring(header.length);
 }
 
+async function addTranslationHints(context) {
+  if (context.payload.issue.pull_request)
+    return;
+  const hinter = await Hinter.create();
+  const body = context.payload.issue.body;
+  const hints = hinter.getHints(body);
+  if (!hints)
+    return;
+  const reply = ['对照翻译建议，根据[对译表](https://github.com/immoonancient/YTSubtitles/blob/master/docs/translation-table.md)生成', ''];
+  for (let hint in hints)
+    reply.push(`${hint}: ${hints[hint]}`);
+  const parameters = context.issue({body: reply.join('\n')});
+  console.log(parameters);
+  context.github.issues.createComment(parameters);
+}
+
 module.exports = app => {
   // Channel and "待翻译" to new issues
+  // Also add translation hints
   app.on('issues.opened', async context => {
+    addTranslationHints(context);
+
     const title = context.payload.issue.title;
     let labels = [];
     for (let i = 0; i < channelLabels.length; ++i) {
