@@ -1,2 +1,2 @@
-runtime: nodejs
-env: flex
+runtime: nodejs10
+instance_class: F1
