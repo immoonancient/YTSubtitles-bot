@@ -195,7 +195,6 @@ module.exports = app => {
   // 1. Creates a pull request that adds a single file with the subtitles as file content
   // 2. Replies to the issue and folds the subtitles in the previous comment
   app.on('issue_comment.created', async context => {
-    console.log("issue_comment.created");
     if (context.payload.issue.pull_request)
       return;
     if (!context.payload.issue.assignee)
@@ -207,10 +206,8 @@ module.exports = app => {
       return;
     const labels = context.payload.issue.labels.map(label => label.name);
     const channel = Channels.findChannelFromLabels(labels);
-    if (!channel) {
-      console.log('Cannot find channel');
+    if (!channel)
       return;
-    }
     const channelLabel = channel.label;
     const channelFolder = channel.folder;
     const comment = context.payload.comment.body;
