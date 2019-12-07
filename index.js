@@ -1,18 +1,5 @@
 const Hinter = require('./hinter.js');
-
-const channelLabels = [
-  '测试作者',
-  '美食作家王刚',
-  '雪鱼探店',
-  '华农兄弟',
-];
-
-const channelFolders = [
-  'test-author',
-  'wang-gang',
-  'xue-yu',
-  'hua-nong-brothers',
-];
+const Channels = require('./channels.js');
 
 const statusLabels = [
   '待翻译',
@@ -36,13 +23,9 @@ async function getAllLabels(context, number) {
   return result;
 }
 
-async function getChannelLabel(context, number) {
+async function getChannel(context, number) {
   const labels = await getAllLabels(context, number);
-  for (let label of labels) {
-    if (channelLabels.includes(label))
-      return label;
-  }
-  return null;
+  return Channels.findChannelFromLabels(labels);
 }
 
 async function setStatusLabel(context, issueNumber, label) {
@@ -75,7 +58,7 @@ async function getSubtitleIssueNumberFromComment(context, commentBody) {
     return null;
   for (let match of matches) {
     const number = parseInt(match.substring(1));
-    if (await getChannelLabel(context, number))
+    if (await getChannel(context, number))
       return number;
   }
   return null;
@@ -140,16 +123,10 @@ module.exports = app => {
     addTranslationHints(context);
 
     const title = context.payload.issue.title;
-    let labels = [];
-    for (let i = 0; i < channelLabels.length; ++i) {
-      const currentChannel = channelLabels[i];
-      if (title.startsWith(`[${currentChannel}]`) || title.startsWith(`【${currentChannel}】`)) {
-        labels.push(currentChannel);
-      }
-    }
-    if (!labels.length)
+    const channel = Channels.findChannelFromTitle(title);
+    if (!channel)
       return;
-    labels.push('待翻译');
+    const labels = ['待翻译', channel.label];
     context.github.issues.addLabels(context.issue({labels: labels}));
   });
 
@@ -165,11 +142,11 @@ module.exports = app => {
       return;
     if (!await isOpen(context, issueNumber))
       return;
-    const channelLabel = await getChannelLabel(context, issueNumber);
-    if (!channelLabel)
+    const channel = await getChannel(context, issueNumber);
+    if (!channel)
       return;
     await setStatusLabel(context, issueNumber, '待审阅');
-    context.github.issues.addLabels(context.issue({number: pull.number, labels: [channelLabel]}));
+    context.github.issues.addLabels(context.issue({number: pull.number, labels: [channel.label]}));
   });
 
   // When a pull request comment is added, and it (i) belongs to a subtitle upload, and (2) firstly mentions
@@ -188,11 +165,11 @@ module.exports = app => {
       return;
     if (!await isOpen(context, issueNumber))
       return;
-    const channelLabel = await getChannelLabel(context, issueNumber);
-    if (!channelLabel)
+    const channel = await getChannel(context, issueNumber);
+    if (!channel)
       return;
     await setStatusLabel(context, issueNumber, '待审阅');
-    await context.github.issues.addLabels(context.issue({number: pull.number, labels: [channelLabel]}));
+    await context.github.issues.addLabels(context.issue({number: pull.number, labels: [channel.label]}));
   });
 
   // When a pull request is merged, and it (1) is a subtitle upload, (2) mentions an open issue with a
@@ -208,7 +185,7 @@ module.exports = app => {
       return;
     if (!await isOpen(context, issueNumber))
       return;
-    if (!await getChannelLabel(context, issueNumber))
+    if (!await getChannel(context, issueNumber))
       return;
     await setStatusLabel(context, issueNumber, '待上传');
   });
@@ -227,18 +204,12 @@ module.exports = app => {
       return;
     if (!context.payload.issue.labels)
       return;
-    let channelLabel;
-    let channelFolder;
-    for (let i = 0; i < context.payload.issue.labels.length; ++i) {
-      const label = context.payload.issue.labels[i];
-      if (!channelLabels.includes(label.name))
-        continue;
-      channelLabel = label;
-      channelFolder = channelFolders[i];
-      break;
-    }
-    if (!channelLabel)
+    const labels = context.payload.issue.labels.map(label => label.name);
+    const channel = Channels.findChannelFromLabels(labels);
+    if (!channel)
       return;
+    const channelLabel = channel.label;
+    const channelFolder = channel.folder;
     const comment = context.payload.comment.body;
     const subtitles = getSubtitleRequestBody(comment);
     if (!subtitles)
@@ -247,7 +218,7 @@ module.exports = app => {
     const owner = context.payload.repository.owner.login;
     const repo = context.payload.repository.name;
     const issueNumber = context.payload.issue.number;
-    const newBranch = `issue-${issueNumber}-${Math.floor(Math.random() * 10)}`;
+    const newBranch = `issue-${issueNumber}-${Math.floor(Math.random() * 100)}`;
 
     // Get hash of master branch
     const masterBranch = await context.github.repos.getBranch({
