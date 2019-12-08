@@ -1,5 +1,6 @@
 const Hinter = require('./hinter.js');
 const Channels = require('./channels.js');
+const Utils = require('./utils.js');
 
 const statusLabels = [
   '待翻译',
@@ -7,26 +8,6 @@ const statusLabels = [
   '待上传',
   '待发布',
 ];
-
-// Returns whether the issue/pull is open or closed
-async function isOpen(context, number) {
-  const response = await context.github.issues.get(context.issue({number: number}));
-  const result = (response.data.state === 'open');
-  return result;
-}
-
-// Returns all labels of an issue/pull
-async function getAllLabels(context, number) {
-  const response = await context.github.issues.listLabelsOnIssue(context.issue({number: number}));
-  const result = [];
-  response.data.forEach(item => result.push(item.name));
-  return result;
-}
-
-async function getChannel(context, number) {
-  const labels = await getAllLabels(context, number);
-  return Channels.findChannelFromLabels(labels);
-}
 
 async function setStatusLabel(context, issueNumber, label) {
   await removeAllStatusLabels(context, issueNumber);
@@ -37,52 +18,8 @@ async function setStatusLabel(context, issueNumber, label) {
   }));
 }
 
-// Returns true if the pull request uploads a single file into a subdir
-// of `/subtitles/` (e.g., `/subtitles/wang-gang/`)
-async function isSubtitlePull(context, pullNumber) {
-  const response = await context.github.pulls.listFiles(context.issue({number: pullNumber}));
-  const files = response.data;
-  if (files.length !== 1)
-    return false;
-
-  const filename = files[0].filename;
-  if (!filename.startsWith('subtitles/'))
-    return false;
-  return filename.split('/').length === 3;
-}
-
-async function getSubtitleIssueNumberFromComment(context, commentBody) {
-  const regex = /#\d+/g;
-  const matches = commentBody.match(regex);
-  if (!matches)
-    return null;
-  for (let match of matches) {
-    const number = parseInt(match.substring(1));
-    if (await getChannel(context, number))
-      return number;
-  }
-  return null;
-}
-
-// Returns the first mentioned issue number in a pull request, such that
-// the issue has a channel label
-async function getSubtitleIssueNumber(context, pullNumber) {
-  let result = null;
-  const pull_details = await context.github.pulls.get(context.issue({number: pullNumber}));
-  result = await getSubtitleIssueNumberFromComment(context, pull_details.data.body);
-  if (result)
-    return result;
-  const comments = await context.github.issues.listComments(context.issue({number: pullNumber}));
-  for (let comment of comments.data) {
-    result = getSubtitleIssueNumberFromComment(context, comment.body);
-    if (result)
-      return result;
-  }
-  return null;
-}
-
 async function removeAllStatusLabels(context, issueNumber) {
-  let labels = await getAllLabels(context, issueNumber);
+  let labels = await Utils.getAllLabels(context, issueNumber);
   labels.filter(label => statusLabels.includes(label)).forEach(label => {
     context.github.issues.removeLabel(context.issue({
       number: issueNumber,
@@ -135,14 +72,14 @@ module.exports = app => {
   // and (b) apply "待审阅" label to issue
   app.on('pull_request.opened', async context => {
     const pull = context.payload.pull_request;
-    if (!await isSubtitlePull(context, pull.number))
+    if (!await Utils.isSubtitlePull(context, pull.number))
       return;
-    const issueNumber = await getSubtitleIssueNumberFromComment(context, pull.body);
+    const issueNumber = await Utils.getSubtitleIssueNumberFromComment(context, pull.body);
     if (!issueNumber)
       return;
-    if (!await isOpen(context, issueNumber))
+    if (!await Utils.isOpen(context, issueNumber))
       return;
-    const channel = await getChannel(context, issueNumber);
+    const channel = await Utils.getChannel(context, issueNumber);
     if (!channel)
       return;
     await setStatusLabel(context, issueNumber, '待审阅');
@@ -158,14 +95,14 @@ module.exports = app => {
     if (!context.payload.issue.pull_request)
       return;
     const pull = context.payload.issue;
-    if (!await isSubtitlePull(context, pull.number))
+    if (!await Utils.isSubtitlePull(context, pull.number))
       return;
-    const issueNumber = await getSubtitleIssueNumberFromComment(context, context.payload.comment.body);
+    const issueNumber = await Utils.getSubtitleIssueNumberFromComment(context, context.payload.comment.body);
     if (!issueNumber)
       return;
-    if (!await isOpen(context, issueNumber))
+    if (!await Utils.isOpen(context, issueNumber))
       return;
-    const channel = await getChannel(context, issueNumber);
+    const channel = await Utils.getChannel(context, issueNumber);
     if (!channel)
       return;
     await setStatusLabel(context, issueNumber, '待审阅');
@@ -178,14 +115,14 @@ module.exports = app => {
     const pull = context.payload.pull_request;
     if (!pull.merged)
       return;
-    if (!await isSubtitlePull(context, pull.number))
+    if (!await Utils.isSubtitlePull(context, pull.number))
       return;
-    const issueNumber = await getSubtitleIssueNumber(context, pull.number);
+    const issueNumber = await Utils.getSubtitleIssueNumber(context, pull.number);
     if (!issueNumber)
       return;
-    if (!await isOpen(context, issueNumber))
+    if (!await Utils.isOpen(context, issueNumber))
       return;
-    if (!await getChannel(context, issueNumber))
+    if (!await Utils.getChannel(context, issueNumber))
       return;
     await setStatusLabel(context, issueNumber, '待上传');
   });
