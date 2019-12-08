@@ -1,3 +1,5 @@
+const Channels = require('./channels.js');
+
 const Utils = {};
 
 // Returns whether the issue/pull is open or closed
