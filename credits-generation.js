@@ -177,7 +177,7 @@ async function createContributionTable(channelName, year, monthIndex) {
   const contributions = await getContributionList(channel, startDate, endDate);
 
   const result = [];
-  result.push(`${channel.label} ${year} 年 ${monthIndex + 1} 月贡献统计表`);
+  result.push(`# ${channel.label} ${year} 年 ${monthIndex + 1} 月贡献统计表`);
   result.push('');
   result.push('| id | 投稿 | 审核 |');
   result.push('| -- | --- | --- |');
