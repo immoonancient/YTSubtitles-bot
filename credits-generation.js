@@ -186,4 +186,16 @@ async function createContributionTable(channelName, year, monthIndex) {
   return result.join('\n');
 }
 
-createContributionTable('王刚', 2019, 10).then(result => console.log(result));
+const argv = require('yargs')
+  .option('channel', {})
+  .option('year', {})
+  .option('month', {})
+  .demandOption(['channel', 'year', 'month'])
+  .help()
+  .argv;
+
+createContributionTable(
+    argv.channel,
+    parseInt(argv.year),
+    parseInt(argv.month) - 1)
+  .then(result => console.log(result));
