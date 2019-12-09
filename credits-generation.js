@@ -11,8 +11,22 @@ const octokit = new Octokit({
   }
 });
 
+const mockContext = {
+  issue: function(params) {
+    const result = {
+      owner: process.env.REPO_OWNER,
+      repo: process.env.repo
+    };
+    for (let key in params)
+      result[key] = params[key];
+    return result;
+  },
+
+  github: octokit
+};
 
 const Channels = require('./channels.js');
+const Utils = require('./utils.js');
 
 class Contribution {
   constructor(id) {
@@ -22,11 +36,44 @@ class Contribution {
   }
 
   addTranslation(number) {
+    if (this.translations.indexOf(number) !== -1)
+      return;
     this.translations.push(number);
   }
 
   addReview(number) {
+    if (this.reviews.indexOf(number) !== -1)
+      return;
     this.reviews.push(number);
+  }
+
+  get userLink() {
+    return `https://github.com/${this.id}`;
+  }
+
+  prettyPrint() {
+    function issueLink(number) {
+      return `/../../issues/${number}`;
+    }
+
+    // First column: user id
+    let result = `| [@${this.id}](${this.userLink}) |`;
+
+    // Second column: translations
+    for (let number of this.translations) {
+      let current = ` [#${number}](${issueLink(number)})`;
+      result += current;
+    }
+    result += ' |';
+
+    // Third column: reviews
+    for (let number of this.reviews) {
+      let current = ` [#${number}](${issueLink(number)})`;
+      result += current;
+    }
+    result += ' |';
+
+    return result;
   }
 };
 
@@ -70,18 +117,43 @@ async function listPulls(channel, startDate, endDate) {
   return result;
 }
 
-async function matchIssue(channel, pull) {
-  
-}
-
 async function matchIssues(channel, pulls) {
   result = {};
   for (let number in pulls) {
-    const issue = await matchIssue(channel, pull);
-    result[issue.number] = issue;
-    console.log(`Pull #${number}  matches issue #${issue.number}`)
+    const issueNumber = await Utils.getSubtitleIssueNumber(mockContext, pulls[number]);
+    const issue = await Utils.getIssue(mockContext, issueNumber);
+    result[issueNumber] = issue;
+    console.log(`Pull #${number} matches issue #${issue.number}`)
   }
   return result;
+}
+
+function countTranslationContributions(issues, contributions) {
+  for (let number in issues) {
+    const issue = issues[number];
+    const assignees = issue.assignees || issue.assignee || [];
+    for (let assignee of assignees) {
+      const name = assignee.login;
+      if (!contributions[name])
+        contributions[name] = new Contribution(name);
+      contributions[name].addTranslation(number);
+    }
+  }
+}
+
+async function countReviewContributions(pulls, contributions) {
+  for (let number in pulls) {
+    const reviews = await Utils.getReviews(mockContext, number);
+    for (let review of reviews) {
+      // TODO: Filter out non-review operations while reducing false negatives
+      if (review.state === 'COMMENTED')
+        continue;
+      const name = review.user.login;
+      if (!contributions[name])
+        contributions[name] = new Contribution(name);
+      contributions[name].addReview(number);
+    }
+  }
 }
 
 async function getContributionList(channel, startDate, endDate) {
@@ -89,13 +161,29 @@ async function getContributionList(channel, startDate, endDate) {
 
   const pulls = await listPulls(channel, startDate, endDate);
   const issues = await matchIssues(channel, pulls);
+
+  const contributions = {};
+  await countTranslationContributions(issues, contributions);
+  await countReviewContributions(pulls, contributions);
+  return contributions;
 }
 
-const channel = Channels.findChannelFromTitle('[王刚]');
-const startDate = new Date(2019, 10, 1);
-const endDate = new Date(2019, 11, 1);
+// Note: monthIndex is 0-based, i.e., January is 0, not 1
+async function createContributionTable(channelName, year, monthIndex) {
+  const channel = Channels.findChannelFromTitle(`[${channelName}]`);
+  const startDate = new Date(year, monthIndex);
+  const endDate = new Date(year, monthIndex + 1);
 
-console.log(startDate);
-console.log(endDate);
+  const contributions = await getContributionList(channel, startDate, endDate);
 
-getContributionList(channel, startDate, endDate);
+  const result = [];
+  result.push(`${channel.label} ${year} 年 ${monthIndex + 1} 月贡献统计表`);
+  result.push('');
+  result.push('| id | 投稿 | 审核 |');
+  result.push('| -- | --- | --- |');
+  for (let name in contributions)
+    result.push(contributions[name].prettyPrint());
+  return result.join('\n');
+}
+
+createContributionTable('王刚', 2019, 10).then(result => console.log(result));
