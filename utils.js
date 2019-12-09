@@ -2,20 +2,41 @@ const Channels = require('./channels.js');
 
 const Utils = {};
 
+async function getIssue(context, number) {
+  const response = await context.github.issues.get(context.issue({issue_number: number}));
+  return response.data;
+}
+Utils['getIssue'] = getIssue;
+
+async function getReviews(context, pullNumber) {
+  const result = [];
+  for (let page = 1; ; ++page) {
+    const response = await context.github.pulls.listReviews(context.issue({
+      pull_number: pullNumber,
+      per_page: 100,
+      page: page
+    }));
+    result.push(...response.data);
+    if (response.data.length < 100)
+      break;
+  }
+  return result;
+}
+Utils['getReviews'] = getReviews;
+
 // Returns whether the issue/pull is open or closed
 async function isOpen(context, number) {
-  const response = await context.github.issues.get(context.issue({number: number}));
-  const result = (response.data.state === 'open');
-  return result;
+  const issue = await getIssue(context, number);
+  return issue.state === 'open';
 }
 Utils['isOpen'] = isOpen;
 
 // Returns all labels of an issue/pull
 async function getAllLabels(context, number) {
-  const response = await context.github.issues.listLabelsOnIssue(context.issue({number: number}));
-  const result = [];
-  response.data.forEach(item => result.push(item.name));
-  return result;
+  const issue = await getIssue(context, number);
+  if (!issue.labels)
+    return [];
+  return issue.labels.map(label => label.name);
 }
 Utils['getAllLabels'] = getAllLabels;
 
@@ -56,13 +77,18 @@ Utils['getSubtitleIssueNumberFromComment'] = getSubtitleIssueNumberFromComment;
 
 // Returns the first mentioned issue number in a pull request, such that
 // the issue has a channel label
-async function getSubtitleIssueNumber(context, pullNumber) {
+async function getSubtitleIssueNumber(context, pull) {
+  if (!pull.number) {
+    const number = pull;
+    const pullResponse = await context.github.pulls.get(context.issue({number: number}));
+    pull = pullResponse.data;
+  }
+
   let result = null;
-  const pull_details = await context.github.pulls.get(context.issue({number: pullNumber}));
-  result = await getSubtitleIssueNumberFromComment(context, pull_details.data.body);
+  result = await getSubtitleIssueNumberFromComment(context, pull.body);
   if (result)
     return result;
-  const comments = await context.github.issues.listComments(context.issue({number: pullNumber}));
+  const comments = await context.github.issues.listComments(context.issue({issue_number: pull.number}));
   for (let comment of comments.data) {
     result = getSubtitleIssueNumberFromComment(context, comment.body);
     if (result)
