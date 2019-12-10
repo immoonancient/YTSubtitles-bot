@@ -1,6 +1,7 @@
 const Hinter = require('./hinter.js');
 const Channels = require('./channels.js');
 const Utils = require('./utils.js');
+const Cheer = require('./cheer.js');
 
 const statusLabels = [
   '待翻译',
@@ -120,11 +121,17 @@ module.exports = app => {
     const issueNumber = await Utils.getSubtitleIssueNumber(context, pull.number);
     if (!issueNumber)
       return;
-    if (!await Utils.isOpen(context, issueNumber))
+    const issue = await Utils.getIssue(context, issueNumber);
+    if (!issue || issue.state !== 'open')
       return;
-    if (!await Utils.getChannel(context, issueNumber))
+    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+      return;
+    if (!issue.assignee)
       return;
     await setStatusLabel(context, issueNumber, '待上传');
+    await context.github.issues.createComment(context.issue({
+      issue_number: issueNumber,
+      body: Cheer(issue.assignee.login)}));
   });
 
   // When the assignee replies to a subtitle issue, and the comment body starts with 'bot, please upload'
