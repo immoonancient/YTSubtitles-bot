@@ -1,5 +1,34 @@
 const Timeline = require('./timeline.js');
 
+function isEmptyLine(line) {
+  return line === '' || line === '#';
+}
+
+// Contents allowed within a Subtitles object:
+// - URL
+// - CommentSection
+// - Subtitle
+
+class URL {
+  constructor(url) {
+    this.url = url;
+  }
+
+  toString() {
+    return [`# ${this.url}`];
+  }
+
+  static parse(line) {
+    line = line || '';
+    if (line.startsWith('#'))
+      line = line.substring(1);
+    line = line.trim();
+    if (line.startsWith('https://www.youtube.com/watch?v=') || line.startsWith('https://youtu.be/'))
+      return new URL(line);
+    return null;
+  }
+};
+
 class Subtitle {
   constructor(timeline, captions, start) {
     this.timeline = timeline || new Timeline();
@@ -11,120 +40,14 @@ class Subtitle {
       this.engLineStart = this.captions.length;
   }
 
-  toString(format) {
-    const result = [];
-    result.push(this.timeline.toString(format));
-    for (let i = 0; i < this.engLineStart; ++i)
-      result.push(`# ${this.captions[i]}`);
-    for (let i = this.engLineStart; i < this.captions.length; ++i)
-      result.push(this.captions[i]);
-    return result;
-  }
-};
-
-class Subtitles {
-  constructor(url, contents) {
-    this.url = url || '';
-    this.contents = contents || [];
-  }
-
-  toString(format) {
-    format = format || 'sbv';
-
-    class Result {
-      constructor() {
-        this.lines = [];
-        this.lastContent = undefined;
-        this.subtitleId = 0;
-      }
-
-      pushString(str) {
-        if (str.startsWith('#'))
-          throw 'Comment marks should have been stripped earlier';
-        if (str !== str.trim())
-          throw 'White spaces should have been stripped earlier';
-        if (str === '')
-          throw 'Empty lines should have been stripped earlier';
-        if (this.lastContent && (typeof this.lastContent !== 'string'))
-          this.lines.push('');
-        this.lines.push(`# ${str}`);
-      }
-
-      pushSubtitle(subtitle) {
-        if (this.lastContent)
-          this.lines.push('');
-        ++this.subtitleId;
-        if (format === 'srt')
-          this.lines.push(`${this.subtitleId}`);
-        this.lines.push(...subtitle.toString(format));
-      }
-
-      push(content) {
-        if (typeof content === 'string')
-          this.pushString(content);
-        else if (content instanceof Subtitle)
-          this.pushSubtitle(content);
-        else
-          throw 'Invalid content in subtitles';
-        this.lastContent = content;
-      }
-
-      toString() {
-        return this.lines;
-      }
-    };
-
-    const result = new Result();
-    for (let content of this.contents)
-      result.push(content);
-    return result.toString();
-  }
-
-};
-
-function trimLine(line) {
-  if (line.startsWith('#'))
-    line = line.substring(1);
-  line = line.trim();
-  return line;
-}
-
-function trySkipURLHeader(lines) {
-  for (let i = 0; i < lines.length; ++i) {
-    const line = trimLine(lines[i]);
-    if (line.startsWith('https://www.youtube.com/watch?v=') || line.startsWith('https://youtu.be/'))
-      return lines.slice(i + 1);
-  }
-  return lines;
-}
-
-
-// Try parse into the specified format with error tolerations:
-// - All lines that are not part of a subtitle are treated as comments
-// - Subtitle lines are lines from a timeline to the next timeline or empty line
-// - Empty lines are parsed and then discarded
-function fuzzyParse(lines, format) {
-  // Return value: [is_empty_line, remaining_lines]
-  function tryParseEmptyLine(lines) {
-    if (!lines.length)
-      return [false, []];
-    const line = trimLine(lines[0]);
-    if (line === '')
-      return [true, lines.slice(1)];
-    return [false, lines];
-  }
-
   // Return value: [parsed_timeline, remaining_lines]
-  function tryParseTimeline(lines) {
+  static parseTimeline(lines, format) {
     if (format === 'srt') {
       if (lines.length < 2)
         return [null, lines];
       if (!lines[0].match(/^\d+$/))
         return [null, lines];
-      let timeline = Timeline.parse(lines[1], format);
-      if (timeline)
-        return [timeline, lines.slice(2)];
-      return [null, lines];
+      lines = lines.slice(1);
     }
 
     if (!lines.length)
@@ -136,31 +59,26 @@ function fuzzyParse(lines, format) {
   }
 
   // Return value: [parsed_subtitle, remaining_lines]
-  function tryParseSubtitle(lines) {
-    let [timeline, next] = tryParseTimeline(lines);
+  static parse(lines, format) {
+    let [timeline, next] = this.parseTimeline(lines, format);
     if (!timeline)
       return [null, lines];
+    lines = next;
 
     let captions = [];
     let engLineStart = 0;
-    while (next.length) {
-      let parsed;
-      let end;
-
-      [parsed, end] = tryParseEmptyLine(next);
-      if (parsed) {
-        next = end;
-        break;
-      }
-
-      [parsed, end] = tryParseTimeline(next);
-      if (parsed)
+    while (lines.length) {
+      if (isEmptyLine(lines[0]))
         break;
 
-      let line = next[0];
-      next = next.slice(1);
+      let [nextTimeline, _] = this.parseTimeline(lines, format);
+      if (nextTimeline)
+        break;
+
+      let line = lines[0];
+      lines = lines.slice(1);
       if (engLineStart === captions.length && line.startsWith('#')) {
-        line = trimLine(line);
+        line = line.substring(1).trim();
         ++engLineStart;
       }
       captions.push(line);
@@ -171,61 +89,141 @@ function fuzzyParse(lines, format) {
     if (captions.length > 1 && engLineStart == 0)
       engLineStart = 1;
 
-    return [new Subtitle(timeline, captions, engLineStart), next];
+    return [new Subtitle(timeline, captions, engLineStart), lines];
   }
 
-  const contents = [];
-  for (let next; lines.length; lines = next) {
-    // TODO: Do not remove all empty lines. Preserve an empty line if it serves as a meaningful paragraph break.
-    
-    let empty;
-    [empty, next] = tryParseEmptyLine(lines);
-    if (empty)
-      continue;
+  toString(format, id) {
+    const result = [];
+    if (format === 'srt')
+      result.push(`${id}`);
+    result.push(this.timeline.toString(format));
+    for (let i = 0; i < this.engLineStart; ++i)
+      result.push(`# ${this.captions[i]}`);
+    for (let i = this.engLineStart; i < this.captions.length; ++i)
+      result.push(this.captions[i]);
+    return result;
+  }
+};
 
-    let subtitle;
-    [subtitle, next] = tryParseSubtitle(lines);
-    if (subtitle) {
-      contents.push(subtitle);
+
+class CommentSection {
+  constructor(lines) {
+    this.lines = lines || [];
+  }
+
+  // Return value: [parsed_comments, remaining_lines]
+  static parse(lines, format) {
+    let comments = [];
+    while (lines.length) {
+      if (isEmptyLine(lines[0]))
+        break;
+      let [timeline, _] = Subtitle.parseTimeline(lines, format);
+      if (timeline)
+        break;
+      let line = lines[0];
+      lines = lines.slice(1);
+      if (line.startsWith('#'))
+        line = line.substring(1).trim();
+      comments.push(line);
+    }
+    if (!comments.length)
+      return [null, lines];
+    return [new CommentSection(comments), lines];
+  }
+
+  toString() {
+    return this.lines.map(line => `# ${line}`);
+  }
+};
+
+class Subtitles {
+  constructor(contents) {
+    this.contents = contents || [];
+  }
+
+  toString(format) {
+    let subtitleId = 0;
+    let result = [];
+    for (let content of this.contents) {
+      if (result.length)
+        result.push('');
+      if (content instanceof Subtitle)
+        ++subtitleId;
+      result.push(...content.toString(format, subtitleId));
+    }
+    return result;
+  }
+};
+
+function fuzzyParse(lines, url, format) {
+  const contents = []; 
+  while (lines.length) {
+    if (isEmptyLine(lines[0])) {
+      lines = lines.slice(1);
       continue;
     }
 
-    contents.push(trimLine(lines[0]));
-    next = lines.slice(1);
+    if (!contents.length) {
+      let url = URL.parse(lines[0]);
+      if (url) {
+        contents.push(url);
+        lines = lines.slice(1);
+        continue;
+      }
+    }
+
+    {
+      let [subtitle, next] = Subtitle.parse(lines, format);
+      if (subtitle) {
+        contents.push(subtitle);
+        lines = next;
+        continue;
+      }
+    }
+
+    let [comments, next] = CommentSection.parse(lines, format);
+    if (comments)
+      contents.push(comments);
+    lines = next;
   }
+
+  if (!(contents[0] instanceof URL))
+    contents.splice(0, 0, new URL(url));
+
   return contents;
 }
 
+function parsePlainText(lines, url) {
+  // TODO
+  throw 'Should not reach here yet';
+}
+
 function convertPassageIntoLines(passage) {
-  const re = new RegExp('\u2028', 'ug');
   return passage
-    .replace(re, '\n')
+    .replace(new RegExp('\u2028', 'ug'), '\n')
+    .replace(/\r\n/g, '\n')
     .split('\n')
     .map(line => line.trim());
 }
 
 function formatSubtitles(passage, url) {
-  let lines = convertPassageIntoLines(passage);
-  lines = trySkipURLHeader(lines);
+  const lines = convertPassageIntoLines(passage);
 
-  // Original lines as the default result when no subtitle format can be identified
-  let result = lines;
   for (let format of ['sbv', 'srt']) {
-    let contents = fuzzyParse(lines, format);
-    if (!contents.some(content => content instanceof Subtitle))
-      continue;
-    result = new Subtitles(url, contents).toString(format);
+    let contents = fuzzyParse(lines, url, format);
+    if (contents.some(content => content instanceof Subtitle))
+      return new Subtitles(contents).toString(format);
   }
 
-  return [`# ${url}`, '', ...result];
+  return parsePlainText(lines, url);
 }
 
 module.exports = {
   format: formatSubtitles,
   testing: {
+    CommentSection: CommentSection,
     Subtitle: Subtitle,
     convertPassageIntoLines: convertPassageIntoLines,
     fuzzyParse: fuzzyParse
   }
 };
-
