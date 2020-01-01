@@ -194,8 +194,26 @@ function fuzzyParse(lines, url, format) {
 }
 
 function parsePlainText(lines, url) {
-  // TODO
-  throw 'Should not reach here yet';
+  const contents = [];
+  contents.push(url);
+  contents.push('');
+
+  let awaitingURL = true;
+  for (; lines.length; lines = lines.slice(1)) {
+    if (awaitingURL && URL.parse(lines[0])) {
+      awaitingURL = false;
+      continue;
+    }
+
+    if (isEmptyLine(lines[0])) {
+      if (contents.length && !isEmptyLine(contents[contents.length - 1]))
+        contents.push('');
+      continue;
+    }
+
+    contents.push(lines[0]);
+  }
+  return contents;
 }
 
 function convertPassageIntoLines(passage) {

@@ -140,3 +140,22 @@ Hey guys! So recently in Guiyang`;
   const output = Formatter.format(input, url);
   expect(output).toEqual(expected);
 });
+
+test('formatSubtitles() #9', () => {
+  const url = 'https://youtu.be/-T2f78X4oiA';
+  const input = `https://youtu.be/-T2f78X4oiA
+
+A: 雪鱼
+B: 店主
+C: 路人
+D: 摄影
+
+B: 64元 是吧？
+64 RMB, right?
+
+C: 对，64元
+Yes, 64 RMB`;
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(input.split('\n'));
+});
