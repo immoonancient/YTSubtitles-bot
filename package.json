@@ -9,9 +9,11 @@
     "probot": "^9.5.2",
     "yargs": "^15.0.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jest": "^24.9.0"
+  },
   "scripts": {
-    "test": "test",
+    "test": "jest",
     "start": "probot run ./index.js"
   },
   "author": "Xiaocheng Hu",
