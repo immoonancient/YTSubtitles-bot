@@ -2,6 +2,7 @@ const Hinter = require('./hinter.js');
 const Channels = require('./channels.js');
 const Utils = require('./utils.js');
 const Cheer = require('./cheer.js');
+const Formatter = require('./formatter/formatter.js');
 
 const statusLabels = [
   '待翻译',
@@ -155,9 +156,11 @@ module.exports = app => {
     const channelLabel = channel.label;
     const channelFolder = channel.folder;
     const comment = context.payload.comment.body;
-    const subtitles = getSubtitleRequestBody(comment);
-    if (!subtitles)
+    const raw_subtitles = getSubtitleRequestBody(comment);
+    if (!raw_subtitles)
       return;
+    const url = Utils.getVideoURLFromTitle(context.payload.issue.title) || 'https://youtu.be/XXXXXXXXXXX';
+    const subtitles = Formatter.format(raw_subtitles, url).join('\n') + '\n';
 
     const owner = context.payload.repository.owner.login;
     const repo = context.payload.repository.name;
@@ -227,7 +230,7 @@ module.exports = app => {
 
     // Post a comment to the issue to notify pull request creation
     const newComment = await context.github.issues.createComment(context.issue({
-      body: `@${author.login}, I've uploaded your subtitles as #${newPull.data.number}.`
+      body: `@${author.login}, I've formatted and uploaded your subtitles as #${newPull.data.number}.`
     }));
   });
 

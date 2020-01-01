@@ -98,4 +98,12 @@ async function getSubtitleIssueNumber(context, pull) {
 }
 Utils['getSubtitleIssueNumber'] = getSubtitleIssueNumber;
 
+function getVideoURLFromTitle(title) {
+  let re = /https:\/\/(youtu\.be\/|www\.youtube\.com\/watch\?v=)[A-Za-z0-9_\-]+/;
+  let m = title.match(re);
+  if (m)
+    return m[0];
+}
+Utils['getVideoURLFromTitle'] = getVideoURLFromTitle;
+
 module.exports = Utils;
