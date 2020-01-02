@@ -88,9 +88,6 @@ module.exports = app => {
     context.github.issues.addLabels(context.issue({number: pull.number, labels: [channel.label]}));
   });
 
-  // When a pull request comment is added, and it (i) belongs to a subtitle upload, and (2) firstly mentions
-  // an issue in the pull request, and (3) the issue is open and contains a channel label, then
-  // (a) apply channel label to pull request, and (b) apply "待审阅" label to issue
   app.on('issue_comment.created', async context => {
     if (context.payload.issue.state !== 'open')
       return;
@@ -99,16 +96,45 @@ module.exports = app => {
     const pull = context.payload.issue;
     if (!await Utils.isSubtitlePull(context, pull.number))
       return;
-    const issueNumber = await Utils.getSubtitleIssueNumberFromComment(context, context.payload.comment.body);
-    if (!issueNumber)
-      return;
-    if (!await Utils.isOpen(context, issueNumber))
-      return;
-    const channel = await Utils.getChannel(context, issueNumber);
-    if (!channel)
-      return;
-    await setStatusLabel(context, issueNumber, '待审阅');
-    await context.github.issues.addLabels(context.issue({number: pull.number, labels: [channel.label]}));
+
+    // When a pull request comment is added, and it (i) belongs to a subtitle upload, and (2) firstly mentions
+    // an issue in the pull request, and (3) the issue is open and contains a channel label, then
+    // (a) apply channel label to pull request, and (b) apply "待审阅" label to issue
+    async function linkPullRequestToSubtitleIssueIfNeeded() {
+      const issueNumber = await Utils.getSubtitleIssueNumberFromComment(context, context.payload.comment.body);
+      if (!issueNumber)
+        return;
+      if (!await Utils.isOpen(context, issueNumber))
+        return;
+      const channel = await Utils.getChannel(context, issueNumber);
+      if (!channel)
+        return;
+      await setStatusLabel(context, issueNumber, '待审阅');
+      await context.github.issues.addLabels(context.issue({number: pull.number, labels: [channel.label]}));
+    };
+    linkPullRequestToSubtitleIssueIfNeeded();
+
+    // "bot, please format" command
+    async function botPleaseFormat() {
+      const body = context.payload.comment.body.trim();
+      if (body !== 'bot, please format')
+        return;
+      const issueNumber = await Utils.getSubtitleIssueNumber(context, pull);
+      if (!issueNumber)
+        return;
+      const issue = await Utils.getIssue(context, issueNumber);
+      if (!issue)
+        return;
+      const subtitles = await Utils.getSubtitleFileContent(context, pull);
+      if (!subtitles)
+        return;
+      const url = Utils.getVideoURLFromTitle(issue.title) || 'https://youtu.be/XXXXXXXXXXX';
+      const formatted = Formatter.format(subtitles, url).join('\n');
+      context.github.issues.createComment(context.issue({
+        body: 'I suggest formatting the subtitles as follows\n```\n' + formatted + '\n```'
+      }));
+    };
+    botPleaseFormat();
   });
 
   // When a pull request is merged, and it (1) is a subtitle upload, (2) mentions an open issue with a
