@@ -1,4 +1,5 @@
 const Channels = require('./channels.js');
+const Axios = require('axios');
 
 const Utils = {};
 
@@ -46,6 +47,12 @@ async function getChannel(context, number) {
 }
 Utils['getChannel'] = getChannel;
 
+function isSubtitleFileName(name) {
+  if (!name.startsWith('subtitles/'))
+    return false;
+  return name.split('/').length === 3;
+}
+
 // Returns true if the pull request uploads a single file into a subdir
 // of `/subtitles/` (e.g., `/subtitles/wang-gang/`)
 async function isSubtitlePull(context, pullNumber) {
@@ -55,11 +62,24 @@ async function isSubtitlePull(context, pullNumber) {
     return false;
 
   const filename = files[0].filename;
-  if (!filename.startsWith('subtitles/'))
-    return false;
-  return filename.split('/').length === 3;
+  return isSubtitleFileName(filename);
 }
 Utils['isSubtitlePull'] = isSubtitlePull;
+
+
+async function getSubtitleFileContent(context, pull) {
+  const response = await context.github.pulls.listFiles(context.issue({number: pull.number}));
+  const files = response.data;
+  for (let file of files) {
+    if (!isSubtitleFileName(file.filename))
+      continue;
+    const url = file.raw_url;
+    const fileResponse = await Axios.default.get(url);
+    return fileResponse.data;
+  }
+}
+
+Utils['getSubtitleFileContent'] = getSubtitleFileContent;
 
 async function getSubtitleIssueNumberFromComment(context, commentBody) {
   const regex = /#\d+/g;
