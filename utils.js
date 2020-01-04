@@ -110,7 +110,7 @@ async function getSubtitleIssueNumber(context, pull) {
     return result;
   const comments = await context.github.issues.listComments(context.issue({issue_number: pull.number}));
   for (let comment of comments.data) {
-    result = getSubtitleIssueNumberFromComment(context, comment.body);
+    result = await getSubtitleIssueNumberFromComment(context, comment.body);
     if (result)
       return result;
   }

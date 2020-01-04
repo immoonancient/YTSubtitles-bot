@@ -198,4 +198,4 @@ createContributionTable(
     argv.channel,
     parseInt(argv.year),
     parseInt(argv.month) - 1)
-  .then(result => console.log(result));
+  .then(result => process.stdout.write(result));

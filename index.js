@@ -117,17 +117,24 @@ module.exports = app => {
     // "bot, please format" command
     async function botPleaseFormat() {
       const body = context.payload.comment.body.trim();
-      if (body !== 'bot, please format')
+      if (!body.startsWith('bot, please format'))
         return;
+      console.log('"bot, please upload" command detected');
       const issueNumber = await Utils.getSubtitleIssueNumber(context, pull);
-      if (!issueNumber)
+      if (!issueNumber) {
+        console.log(`Pull request #${pull.number} not linked to subtitle issue yet`);
         return;
+      }
       const issue = await Utils.getIssue(context, issueNumber);
-      if (!issue)
+      if (!issue) {
+        console.log(`Failed getting issue #${issueNumber}`);
         return;
+      }
       const subtitles = await Utils.getSubtitleFileContent(context, pull);
-      if (!subtitles)
+      if (!subtitles) {
+        console.log(`Failed getting subtitle file content from #${pull.number}`);
         return;
+      }
       const url = Utils.getVideoURLFromTitle(issue.title) || 'https://youtu.be/XXXXXXXXXXX';
       const formatted = Formatter.format(subtitles, url).join('\n');
       context.github.issues.createComment(context.issue({
