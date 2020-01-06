@@ -159,3 +159,32 @@ Yes, 64 RMB`;
   const output = Formatter.format(input, url);
   expect(output).toEqual(input.split('\n'));
 });
+
+test('formatSubtitles() #565', () => {
+  const url = 'https://youtu.be/NIY6aPsSe3s';
+
+  const input = `00:00:01,920 --> 00:00:05,960
+佛山·顺德
+Shunde, Foshan
+
+00:00:05,960 --> 00:00:08,960
+看到没 我后面挂的这4只烧鹅
+See? The four roast geese behind me.`;
+
+  const expected = [
+    `# ${url}`,
+    '',
+    '1',
+    '00:00:01,920 --> 00:00:05,960',
+    '# 佛山·顺德',
+    'Shunde, Foshan',
+    '',
+    '2',
+    '00:00:05,960 --> 00:00:08,960',
+    '# 看到没 我后面挂的这4只烧鹅',
+    'See? The four roast geese behind me.'
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});

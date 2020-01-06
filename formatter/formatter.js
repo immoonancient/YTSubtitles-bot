@@ -43,11 +43,11 @@ class Subtitle {
   // Return value: [parsed_timeline, remaining_lines]
   static parseTimeline(lines, format) {
     if (format === 'srt') {
-      if (lines.length < 2)
+      if (!lines.length)
         return [null, lines];
-      if (!lines[0].match(/^\d+$/))
-        return [null, lines];
-      lines = lines.slice(1);
+      // Make the subtitle id line optional, as some submissions remove the line
+      if (lines[0].match(/^\d+$/))
+        lines = lines.slice(1);
     }
 
     if (!lines.length)
