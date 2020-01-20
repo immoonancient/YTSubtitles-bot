@@ -24,3 +24,8 @@ test('getVideoURLFromTitle() #512', () => {
   const title = '【雪鱼】贵阳糯米饭-https://youtu.be/ICodP_g_JJk';
   expect(Utils.getVideoURLFromTitle(title)).toBe('https://youtu.be/ICodP_g_JJk');
 });
+
+test('getVideoIDFromTitle() #512', () => {
+  const title = '【雪鱼】贵阳糯米饭-https://youtu.be/ICodP_g_JJk';
+  expect(Utils.getVideoIDFromTitle(title)).toBe('ICodP_g_JJk');
+});

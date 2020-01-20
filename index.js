@@ -150,7 +150,8 @@ module.exports = app => {
     const pull = context.payload.pull_request;
     if (!pull.merged)
       return;
-    if (!await Utils.isSubtitlePull(context, pull.number))
+    const path = await Utils.getSubtitleFilePath(context, pull.number);
+    if (!path)
       return;
     const issueNumber = await Utils.getSubtitleIssueNumber(context, pull.number);
     if (!issueNumber)
@@ -163,9 +164,18 @@ module.exports = app => {
     if (!issue.assignee)
       return;
     await setStatusLabel(context, issueNumber, '待上传');
+
+    const uploaderURL = 'https://immoonancient.github.io/YTSubtitles/static/uploader.html';
+    const videoID = Utils.getVideoIDFromTitle(issue.title) || '';
+
     await context.github.issues.createComment(context.issue({
       issue_number: issueNumber,
-      body: Cheer(issue.assignee.login)}));
+      body: [
+        Cheer(issue.assignee.login),
+        '',
+        '',
+        `Please upload the subtitles to YouTube via ${uploaderURL}?video=${videoID}&path=${encodeURIComponent(path.substring('subtitles/'.length))}`
+      ].join('')}));
   });
 
   // When the assignee replies to a subtitle issue, and the comment body starts with 'bot, please upload'

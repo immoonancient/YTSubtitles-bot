@@ -53,19 +53,24 @@ function isSubtitleFileName(name) {
   return name.split('/').length === 3;
 }
 
-// Returns true if the pull request uploads a single file into a subdir
-// of `/subtitles/` (e.g., `/subtitles/wang-gang/`)
-async function isSubtitlePull(context, pullNumber) {
+async function getSubtitleFilePath(context, pullNumber) {
   const response = await context.github.pulls.listFiles(context.issue({number: pullNumber}));
   const files = response.data;
   if (files.length !== 1)
     return false;
 
   const filename = files[0].filename;
-  return isSubtitleFileName(filename);
+  return isSubtitleFileName(filename) ? filename : ''; 
+}
+Utils['getSubtitleFilePath'] = getSubtitleFilePath;
+
+// Returns true if the pull request uploads a single file into a subdir
+// of `/subtitles/` (e.g., `/subtitles/wang-gang/`)
+async function isSubtitlePull(context, pullNumber) {
+  const filename = await getSubtitleFilePath(context, pullNumber);
+  return filename !== '';
 }
 Utils['isSubtitlePull'] = isSubtitlePull;
-
 
 async function getSubtitleFileContent(context, pull) {
   const response = await context.github.pulls.listFiles(context.issue({number: pull.number}));
@@ -117,6 +122,14 @@ async function getSubtitleIssueNumber(context, pull) {
   return null;
 }
 Utils['getSubtitleIssueNumber'] = getSubtitleIssueNumber;
+
+function getVideoIDFromTitle(title) {
+  let re = /https:\/\/(youtu\.be\/|www\.youtube\.com\/watch\?v=)([A-Za-z0-9_\-]+)/;
+  let m = title.match(re);
+  if (m)
+    return m[2];
+}
+Utils['getVideoIDFromTitle'] = getVideoIDFromTitle;
 
 function getVideoURLFromTitle(title) {
   let re = /https:\/\/(youtu\.be\/|www\.youtube\.com\/watch\?v=)[A-Za-z0-9_\-]+/;
