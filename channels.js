@@ -17,6 +17,9 @@ class Channel {
 
 const channels = [];
 
+// TODO(immoonancient): data and implementation shoudld be separated.
+// Move these to a new data file.
+
 channels.push(new Channel(
 	'测试作者',
 	'test-author',
@@ -36,6 +39,10 @@ channels.push(new Channel(
 	'华农兄弟',
 	'hua-nong-brothers',
 	['华农', '村霸']));
+
+channels.push(new Channel(
+  '老饭骨',
+  'lao-fan-gu'));
 
 function findChannelFromTitle(title) {
 	return channels.find(channel => channel.match(title));
