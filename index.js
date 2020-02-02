@@ -203,6 +203,9 @@ module.exports = app => {
     if (!raw_subtitles)
       return;
     const url = Utils.getVideoURLFromTitle(context.payload.issue.title) || 'https://youtu.be/XXXXXXXXXXX';
+
+    // There's some duplicated work here, but who cares
+    const format = Formatter.testFormat(raw_subtitles);
     const subtitles = Formatter.format(raw_subtitles, url).join('\n') + '\n';
 
     const owner = context.payload.repository.owner.login;
@@ -218,8 +221,9 @@ module.exports = app => {
     });
     const sha = masterBranch.data.commit.sha;
 
-    // Create a new tree with a new file, on top of master 
-    const newFileName = `subtitles-issue-${issueNumber}`; // TODO: improve this
+    // Create a new tree with a new file, on top of master
+    // TODO: improve this
+    const newFileName = `subtitles-issue-${issueNumber}${format ? ('.' + format) : ''}`;
     const newFile = {
       path: `subtitles/${channelFolder}/${newFileName}`,
       mode: '100644',

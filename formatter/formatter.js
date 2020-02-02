@@ -236,8 +236,19 @@ function formatSubtitles(passage, url) {
   return parsePlainText(lines, url);
 }
 
+function testFormat(passage) {
+  const lines = convertPassageIntoLines(passage);
+  for (let format of ['sbv', 'srt']) {
+    let contents = fuzzyParse(lines, undefined, format);
+    if (contents.some(content => content instanceof Subtitle))
+      return format;
+  }
+  return undefined;
+}
+
 module.exports = {
   format: formatSubtitles,
+  testFormat: testFormat,
   testing: {
     CommentSection: CommentSection,
     Subtitle: Subtitle,

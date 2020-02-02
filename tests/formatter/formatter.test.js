@@ -76,6 +76,21 @@ test('formatSubtitles() #541', () => {
   expect(output).toEqual(expected);
 });
 
+test('testFormat() #541', () => {
+  const input = [
+    '# 在顺德吃煲仔饭，40到80元一份，锅比脸还大！量大料足吃过瘾',
+    'Claypot Rice in Shunde, served in a pot bigger than your face! Big and Satisfying!',
+    '1',
+    '00:00:02,100 --> 00:00:04,100',
+    '佛山 顺德',
+    'Shunde, Foshan',
+    '2',
+    '00:00:14,160 --> 00:00:16,800',
+    '我们现在要去吃煲仔饭',
+    'We are now heading for “baozaifan” (claypot rice)'].join('\n');
+  expect(Formatter.testFormat(input)).toEqual('srt');
+});
+
 test('formatSubtitles() #530', () => {
   const url = 'https://youtu.be/K6TfhFFsu8U';
 
