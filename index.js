@@ -173,9 +173,8 @@ module.exports = app => {
       body: [
         Cheer(issue.assignee.login),
         '',
-        '',
         `Please upload the subtitles to YouTube via ${uploaderURL}?video=${videoID}&path=${encodeURIComponent(path.substring('subtitles/'.length))}`
-      ].join('')}));
+      ].join('\n')}));
   });
 
   // When the assignee replies to a subtitle issue, and the comment body starts with 'bot, please upload'
