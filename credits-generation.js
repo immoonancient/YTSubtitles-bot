@@ -15,7 +15,7 @@ const mockContext = {
   issue: function(params) {
     const result = {
       owner: process.env.REPO_OWNER,
-      repo: process.env.repo
+      repo: process.env.REPO
     };
     for (let key in params)
       result[key] = params[key];
