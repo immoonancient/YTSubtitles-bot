@@ -1,8 +1,12 @@
+const Express = require('express');
+
 const Hinter = require('./hinter.js');
 const Channels = require('./channels.js');
 const Utils = require('./utils.js');
 const Cheer = require('./cheer.js');
 const Formatter = require('./formatter/formatter.js');
+
+const Credits = require('./credits-generation.js');
 
 const statusLabels = [
   '待翻译',
@@ -280,4 +284,11 @@ module.exports = app => {
     }));
   });
 
+  // ====== HTTP routes ======
+
+  const router = app.route('/tools');
+  router.use(Express());
+
+  Channels.addListChannelRoute(router, '/list-channels')
+  Credits.addRoute(router, '/credits');
 }

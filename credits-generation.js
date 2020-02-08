@@ -186,6 +186,7 @@ async function createContributionTable(channelName, year, monthIndex) {
   return result.join('\n');
 }
 
+/*
 const argv = require('yargs')
   .option('channel', {})
   .option('year', {})
@@ -199,3 +200,26 @@ createContributionTable(
     parseInt(argv.year),
     parseInt(argv.month) - 1)
   .then(result => process.stdout.write(result));
+  */
+
+function addRoute(router, path) {
+  router.get(path, async (req, res) => {
+    const query = req.query;
+    if (!query['start-date'] || !query['end-date'] || !query['channel']) {
+      res.sendStatus(400);
+      return;
+    }
+
+    const channel = Channels.findChannelFromFolder(req.query.channel);
+    const startDate = new Date(req.query['start-date']);
+    const endDate = new Date(req.query['end-date']);
+    endDate.setDate(endDate.getDate() + 1);
+
+    const contributions = await getContributionList(channel, startDate, endDate);
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(contributions);
+  });
+}
+
+module.exports = {addRoute: addRoute};

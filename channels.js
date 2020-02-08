@@ -52,8 +52,21 @@ function findChannelFromLabels(labels) {
 	return channels.find(channel => labels.indexOf(channel.label) !== -1);
 }
 
+function findChannelFromFolder(folder) {
+	return channels.find(channel => channel.folder === folder);
+}
+
+function addListChannelRoute(router, path) {
+	router.get(path, (req, res) => {
+		res.setHeader('Access-Control-Allow-Origin', '*');
+		res.send(channels.filter(channel => channel.label.indexOf('测试') === -1));
+	});
+}
+
 module.exports = {
 	channels: channels,
 	findChannelFromTitle: findChannelFromTitle,
-	findChannelFromLabels: findChannelFromLabels
+	findChannelFromLabels: findChannelFromLabels,
+	findChannelFromFolder: findChannelFromFolder,
+	addListChannelRoute: addListChannelRoute
 };
