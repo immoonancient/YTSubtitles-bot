@@ -79,41 +79,32 @@ class Contribution {
 
 async function listPulls(channel, startDate, endDate) {
   const result = {};
-  for (let page = 1; ; ++page) {
-    let allPulls;
-    try {
-      allPulls = await octokit.pulls.list({
+
+  function handlePull(pull, done) {
+    const labels = pull.labels.map(label => label.name);
+    if (!labels || Channels.findChannelFromLabels(labels) != channel)
+      return;
+    const date = new Date(pull.created_at);
+    if (date >= endDate)
+      return;
+    if (date < startDate) {
+      done();
+      return;
+    }
+
+    console.log(`Pull request found: #${pull.number} ${date}`);
+    result[pull.number] = pull;
+  }
+
+  const options = octokit.pulls.list.endpoint.merge({
         owner: process.env.REPO_OWNER,
         repo: process.env.REPO,
-        state: 'all',
-        per_page: 100,
-        page: page});
-    } catch (error) {
-      console.log(error);
-      break;
-    }
-    if (!allPulls)
-      break;
+        state: 'all'});
+  await octokit.paginate(options, (response, done) => {
+    response.data.forEach(pull => handlePull(pull, done));
+  });
 
-    let lastPage = false;
-    for (let pull of allPulls.data) {
-      const labels = pull.labels.map(label => label.name);
-      if (!labels || Channels.findChannelFromLabels(labels) != channel)
-        continue;
-      const date = new Date(pull.created_at);
-      if (date >= endDate)
-        continue;
-      if (date < startDate) {
-        lastPage = true;
-        break;
-      }
-
-      console.log(`Pull request found: #${pull.number} ${date}`);
-      result[pull.number] = pull;
-    }
-    if (lastPage)
-      break;
-  }
+  console.log('All pull requests listed');
   return result;
 }
 
@@ -121,6 +112,10 @@ async function matchIssues(channel, pulls) {
   result = {};
   for (let number in pulls) {
     const issueNumber = await Utils.getSubtitleIssueNumber(mockContext, pulls[number]);
+    if (!issueNumber) {
+      console.log(`Failed to find matching issue number for pull request #${number}`);
+      continue;
+    }
     const issue = await Utils.getIssue(mockContext, issueNumber);
     result[issueNumber] = issue;
     console.log(`Pull #${number} matches issue #${issue.number}`)
