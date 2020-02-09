@@ -246,9 +246,35 @@ function testFormat(passage) {
   return undefined;
 }
 
+function addRoute(router, path) {
+  router.options(path, (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type');
+    res.sendStatus(200);
+  });
+
+  router.post(path, async (req, res) => {
+    const format = req.body.format;
+    const video = req.body.video;
+    const passage = req.body.passage;
+    if (!format || !video || !passage) {
+      res.sendStatus(400);
+      return;
+    }
+
+    const contents = fuzzyParse(passage.split('\n'), 'https://youtu.be/' + video, format);
+    const result = new Subtitles(contents).toString(format).join('\n') + '\n';
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(result);
+  });
+}
+
 module.exports = {
   format: formatSubtitles,
   testFormat: testFormat,
+  addRoute: addRoute,
   testing: {
     CommentSection: CommentSection,
     Subtitle: Subtitle,

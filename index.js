@@ -287,8 +287,10 @@ module.exports = app => {
   // ====== HTTP routes ======
 
   const router = app.route('/tools');
-  router.use(Express());
+  const express = Express.json();
+  router.use(express);
 
   Channels.addListChannelRoute(router, '/list-channels')
   Credits.addRoute(router, '/credits');
+  Formatter.addRoute(router, '/format');
 }
