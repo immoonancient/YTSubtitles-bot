@@ -225,8 +225,14 @@ module.exports = app => {
     const sha = masterBranch.data.commit.sha;
 
     // Create a new tree with a new file, on top of master
+    const date = new Date();
+    const dateStamp = [
+      date.getFullYear(),
+      (date.getMonth() + 1).toString().padStart(2, '0'),
+      date.getDate().toString().padStart(2, '0')
+    ].join('');
     const newFileName = Utils.mainTitleToPinyin(context.payload.issue.title) || `subtitles-issue-${issueNumber}`;
-    const newFileFullName = `${newFileName}${format ? ('.' + format) : ''}`;
+    const newFileFullName = `${dateStamp}-${newFileName}${format ? ('.' + format) : ''}`;
     const newFile = {
       path: `subtitles/${channelFolder}/${newFileFullName}`,
       mode: '100644',
