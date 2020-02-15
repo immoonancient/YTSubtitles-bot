@@ -203,3 +203,27 @@ See? The four roast geese behind me.`;
   const output = Formatter.format(input, url);
   expect(output).toEqual(expected);
 });
+
+test('Subtitle.parse() commented srt', () => {
+  const input = [
+    '# 1',
+    '# 00:00:00,000 --> 00:00:01,000',
+    '# whatever'
+  ];
+
+  const [output, next] = Formatter.testing.Subtitle.parse(input, 'srt');
+  expect(output).toEqual(null);
+});
+
+test('HTTP route commented srt', () => {
+  const url = 'https://youtu.be/XXXXXXXXXX';
+  const input = [
+    '# 1',
+    '# 00:00:00,000 --> 00:00:01,000',
+    '# whatever'
+  ];
+
+  const contents = Formatter.testing.fuzzyParse(input, url, 'srt');
+  const result = new Formatter.testing.Subtitles(contents).toString('srt');
+  expect(result).toEqual(input);
+});

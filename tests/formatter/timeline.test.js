@@ -42,3 +42,9 @@ test('Timeline.parse() srt fail', () => {
   const result = Timeline.parse(input, 'srt');
   expect(result).toEqual(null);
 });
+
+test('Timeline.parse() srt commented', () => {
+  const input = '# 00:00:02,250 --> 00:00:02,750';
+  const result = Timeline.parse(input, 'srt');
+  expect(result).toEqual(null);
+});

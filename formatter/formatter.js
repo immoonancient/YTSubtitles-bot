@@ -278,6 +278,7 @@ module.exports = {
   testing: {
     CommentSection: CommentSection,
     Subtitle: Subtitle,
+    Subtitles: Subtitles,
     convertPassageIntoLines: convertPassageIntoLines,
     fuzzyParse: fuzzyParse
   }
