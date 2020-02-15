@@ -225,10 +225,10 @@ module.exports = app => {
     const sha = masterBranch.data.commit.sha;
 
     // Create a new tree with a new file, on top of master
-    // TODO: improve this
-    const newFileName = `subtitles-issue-${issueNumber}${format ? ('.' + format) : ''}`;
+    const newFileName = Utils.mainTitleToPinyin(context.payload.issue.title) || `subtitles-issue-${issueNumber}`;
+    const newFileFullName = `${newFileName}${format ? ('.' + format) : ''}`;
     const newFile = {
-      path: `subtitles/${channelFolder}/${newFileName}`,
+      path: `subtitles/${channelFolder}/${newFileFullName}`,
       mode: '100644',
       type: 'blob',
       content: subtitles

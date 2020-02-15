@@ -29,3 +29,18 @@ test('getVideoIDFromTitle() #512', () => {
   const title = '【雪鱼】贵阳糯米饭-https://youtu.be/ICodP_g_JJk';
   expect(Utils.getVideoIDFromTitle(title)).toBe('ICodP_g_JJk');
 });
+
+test('mainTitleToPinyin() #669', () => {
+  const title = '[老饭骨] 去骨香酥鸭 - https://youtu.be/NmG6KB5NQ4o';
+  expect(Utils.mainTitleToPinyin(title)).toBe('qu-gu-xiang-su-ya');
+});
+
+test('mainTitleToPinyin() #672', () => {
+  const title = '【美食作家王刚】炸鲜奶 - https://youtu.be/MJuNod7VaSQ';
+  expect(Utils.mainTitleToPinyin(title)).toBe('zha-xian-nai');
+});
+
+test('mainTitleToPinyin() #641', () => {
+  const title = '【雪鱼】广东炖汤-https://www.youtube.com/watch?v=7Rs_ElFXpN4';
+  expect(Utils.mainTitleToPinyin(title)).toBe('guang-dong-dun-tang');
+})
