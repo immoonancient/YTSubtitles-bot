@@ -229,3 +229,45 @@ test('HTTP route commented srt', () => {
   const result = new Formatter.testing.Subtitles(contents).toString('srt');
   expect(result).toEqual(input);
 });
+
+test('formatSubtitles() #708', () => {
+  const url = 'https://youtu.be/Wtj8-kc72_U';
+
+  const input = [
+    "0:01:47.000,0:02:06.680",
+    "下面开始技术总结",
+    "第一，切好的菱角菜必须加入盐糖白醋",
+    "刹水，这一步的目的是保证菜品的爽脆",
+    "第二，刹好水之后可以不用清洗直接加料凉拌",
+    "第三，不喜欢吃辣的同学可以不加辣椒和花椒",
+    "只需加入盐和白糖即可",
+    "凉拌菱角菜的技术总结完毕",
+    "Now, let's summarize the key techniques:",
+    "First, we need to add the salt. sugar, and rice vinegar mixture to the cutted veggies to remove the water, making sure the final product is refreshing and crispy",
+    "Secondly, we don't need to rinse the veggies after the water removal step",
+    "Thirdly, If you don't like spicy food, you don't need to add chili and peppercorn; salt and sugar will be enough.",
+    "Above are all the techniques for the spicy mustard plant stem salad"
+  ].join('\n');
+
+  // Should identify and anotate multiple Chinese lines
+  const expected = [
+    `# ${url}`,
+    '',
+    "0:01:47.000,0:02:06.680",
+    "# 下面开始技术总结",
+    "# 第一，切好的菱角菜必须加入盐糖白醋",
+    "# 刹水，这一步的目的是保证菜品的爽脆",
+    "# 第二，刹好水之后可以不用清洗直接加料凉拌",
+    "# 第三，不喜欢吃辣的同学可以不加辣椒和花椒",
+    "# 只需加入盐和白糖即可",
+    "# 凉拌菱角菜的技术总结完毕",
+    "Now, let's summarize the key techniques:",
+    "First, we need to add the salt. sugar, and rice vinegar mixture to the cutted veggies to remove the water, making sure the final product is refreshing and crispy",
+    "Secondly, we don't need to rinse the veggies after the water removal step",
+    "Thirdly, If you don't like spicy food, you don't need to add chili and peppercorn; salt and sugar will be enough.",
+    "Above are all the techniques for the spicy mustard plant stem salad"
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});
