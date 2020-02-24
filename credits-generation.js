@@ -167,9 +167,7 @@ async function getContributionList(channel, startDate, endDate) {
 
   const contributionList = Object.keys(contributions).map(name => contributions[name]);
 
-  contributionsList.sort(function(c1, c2) {
-    return c2.countContributions - c1.countContributions;
-  });
+  contributionList.sort((c1, c2) => c2.countContributions - c1.countContributions);
 
   return contributionsList;
 }
