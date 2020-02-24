@@ -167,9 +167,9 @@ async function getContributionList(channel, startDate, endDate) {
 
   const contributionList = Object.keys(contributions).map(name => contributions[name]);
 
-  contributionList.sort((c1, c2) => c2.countContributions - c1.countContributions);
+  contributionList.sort((c1, c2) => c2.countContributions() - c1.countContributions());
 
-  return contributionsList;
+  return contributionList;
 }
 
 // Note: monthIndex is 0-based, i.e., January is 0, not 1
