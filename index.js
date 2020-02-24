@@ -41,7 +41,6 @@ function getSubtitleRequestBody(message) {
   }
 
   const header = 'bot, please upload';
-
   if (message.startsWith(header))
     return message.substring(header.length);
   
