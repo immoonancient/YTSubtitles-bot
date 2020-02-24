@@ -36,11 +36,18 @@ async function removeAllStatusLabels(context, issueNumber) {
 }
 
 function getSubtitleRequestBody(message) {
-  // TODO: make the pattern matching more versatile
+  function containsSubtitles(message) {
+    return Formatter.testFormat(message);
+  }
+
   const header = 'bot, please upload';
-  if (!message.startsWith(header))
-    return null;
-  return message.substring(header.length);
+  if (message.startsWith(header))
+    return message.substring(header.length);
+  
+  if (containsSubtitles(message))
+    return message;
+
+  return null;
 }
 
 async function addTranslationHints(context) {
