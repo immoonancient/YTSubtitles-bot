@@ -75,6 +75,10 @@ class Contribution {
 
     return result;
   }
+
+  countContributions() {
+    return this.translations.length * 2 + this.reviews.length;
+  }
 };
 
 async function listPulls(channel, startDate, endDate) {
@@ -160,7 +164,12 @@ async function getContributionList(channel, startDate, endDate) {
   const contributions = {};
   await countTranslationContributions(issues, contributions);
   await countReviewContributions(pulls, contributions);
-  return contributions;
+
+  const contributionList = Object.keys(contributions).map(name => contributions[name]);
+
+  contributionList.sort((c1, c2) => c2.countContributions - c1.countContributions);
+
+  return contributionsList;
 }
 
 // Note: monthIndex is 0-based, i.e., January is 0, not 1
@@ -176,8 +185,8 @@ async function createContributionTable(channelName, year, monthIndex) {
   result.push('');
   result.push('| id | 投稿 | 审核 |');
   result.push('| -- | --- | --- |');
-  for (let name in contributions)
-    result.push(contributions[name].prettyPrint());
+  for (let contribution of contributions)
+    result.push(contribution.prettyPrint());
   return result.join('\n');
 }
 
