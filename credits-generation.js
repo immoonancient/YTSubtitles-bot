@@ -165,9 +165,7 @@ async function getContributionList(channel, startDate, endDate) {
   await countTranslationContributions(issues, contributions);
   await countReviewContributions(pulls, contributions);
 
-  const contributionsList = Object.keys(contributions).map(function(name) {
-    return contributions[name];
-  });
+  const contributionList = Object.keys(contributions).map(name => contributions[name]);
 
   contributionsList.sort(function(c1, c2) {
     return c2.countContributions - c1.countContributions;
