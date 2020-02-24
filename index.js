@@ -38,12 +38,12 @@ async function removeAllStatusLabels(context, issueNumber) {
 function getSubtitleRequestBody(message) {
   // TODO: make the pattern matching more versatile
   const header = 'bot, please upload';
-  if (!message.startsWith(header)&&isNotSubtitle(message))
+  if (!message.startsWith(header) && isSubtitle(message))
     return null;
   return message.substring(header.length);
 }
 
-function isNotSubtitle(message) {
+function isSubtitle(message) {
   if (Formatter.testFormat(message) != undefined) {
     return message
   }
