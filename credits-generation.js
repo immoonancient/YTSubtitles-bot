@@ -77,7 +77,7 @@ class Contribution {
   }
 
   countContributions() {
-    return this.translations.length + this.reviews.length;
+    return this.translations.length * 2 + this.reviews.length;
   }
 };
 
@@ -189,7 +189,7 @@ async function createContributionTable(channelName, year, monthIndex) {
   result.push('');
   result.push('| id | 投稿 | 审核 |');
   result.push('| -- | --- | --- |');
-  for (let contribution in contributions)
+  for (let contribution of contributions)
     result.push(contribution.prettyPrint());
   return result.join('\n');
 }
