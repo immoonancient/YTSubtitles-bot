@@ -170,7 +170,7 @@ async function getContributionList(channel, startDate, endDate) {
   });
 
   contributionsList.sort(function(c1, c2) {
-    return c1.countContributions - c2.countContributions;
+    return c2.countContributions - c1.countContributions;
   });
 
   return contributionsList;
