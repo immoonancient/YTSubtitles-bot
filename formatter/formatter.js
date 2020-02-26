@@ -1,5 +1,11 @@
 const Timeline = require('./timeline.js');
 
+const REGEX_CHINESE = /[\u4e00-\u9fff]|[\u3400-\u4dbf]|[\u{20000}-\u{2a6df}]|[\u{2a700}-\u{2b73f}]|[\u{2b740}-\u{2b81f}]|[\u{2b820}-\u{2ceaf}]|[\uf900-\ufaff]|[\u3300-\u33ff]|[\ufe30-\ufe4f]|[\uf900-\ufaff]|[\u{2f800}-\u{2fa1f}]/u;
+
+function hasChinese(str) {
+  return REGEX_CHINESE.test(str);
+}
+
 function isEmptyLine(line) {
   return line === '' || line === '#';
 }
@@ -81,13 +87,11 @@ class Subtitle {
         line = line.substring(1).trim();
         ++engLineStart;
       }
+      if (hasChinese(line)) {
+        ++engLineStart;
+      }
       captions.push(line);
     }
-
-    // Heuristic: if there are multiple captions lines, while no line starts with '#',
-    // assume that the first line is the Chinese line
-    if (captions.length > 1 && engLineStart == 0)
-      engLineStart = 1;
 
     return [new Subtitle(timeline, captions, engLineStart), lines];
   }
