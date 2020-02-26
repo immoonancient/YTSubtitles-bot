@@ -114,16 +114,20 @@ async function listPulls(channel, startDate, endDate) {
 
 async function matchIssues(channel, pulls) {
   result = {};
-  for (let number in pulls) {
-    const issueNumber = await Utils.getSubtitleIssueNumber(mockContext, pulls[number]);
+  async function matchIssue(pull) {
+    const issueNumber = await Utils.getSubtitleIssueNumber(mockContext, pull);
     if (!issueNumber) {
-      console.log(`Failed to find matching issue number for pull request #${number}`);
-      continue;
+      console.log(`Failed to find matching issue number for pull request #${pull.number}`);
+      return;
     }
+    console.log(`Pull #${pull.number} matches issue #${issueNumber}`)
     const issue = await Utils.getIssue(mockContext, issueNumber);
-    result[issueNumber] = issue;
-    console.log(`Pull #${number} matches issue #${issue.number}`)
+    result[issue.number] = issue;
   }
+
+  await Promise.all(
+    Object.keys(pulls).map(
+      number => matchIssue(pulls[number])));
   return result;
 }
 
@@ -141,7 +145,7 @@ function countTranslationContributions(issues, contributions) {
 }
 
 async function countReviewContributions(pulls, contributions) {
-  for (let number in pulls) {
+  async function countReviewsInPull(number) {
     const reviews = await Utils.getReviews(mockContext, number);
     for (let review of reviews) {
       // TODO: Filter out non-review operations while reducing false negatives
@@ -153,6 +157,10 @@ async function countReviewContributions(pulls, contributions) {
       contributions[name].addReview(number);
     }
   }
+
+  await Promise.all(
+    Object.keys(pulls).map(
+      number => countReviewsInPull(number)));
 }
 
 async function getContributionList(channel, startDate, endDate) {
