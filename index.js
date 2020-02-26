@@ -253,14 +253,26 @@ module.exports = app => {
       tree: [newFile],
     });
 
+    const commitAuthor = {
+      name: author.login,
+      email: author.email || `${author.id}+${author.login}@users.noreply.github.com`
+    };
+
+    // TODO: Try not to hard code it.
+    const committer = {
+      name: 'ytsubtitles-bot[bot]',
+      email: '56288348+ytsubtitles-bot[bot]@users.noreply.github.com'
+    };
+
     // Commit the new tree
-    // TODO: Set author correctly
     const newCommit = await context.github.git.createCommit({
       owner: owner,
       repo: repo,
       message: `Upload subtitles for issue #${issueNumber} on behalf of @${author.login}`,
       tree: newTree.data.sha,
       parents: [sha],
+      author: commitAuthor,
+      committer: committer
     });
 
     // Create a new branch referring the commit
