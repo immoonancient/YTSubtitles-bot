@@ -155,6 +155,58 @@ module.exports = app => {
     botPleaseFormat();
   });
 
+  // When someone replies '认领' in a subtitle issue without assignee, assign them and prompt the next steps
+  app.on('issue_comment.created', async context => {
+    const body = context.payload.comment.body.trim();
+    if (body !== '认领')
+      return;
+
+    function respond(body) {
+      context.github.issues.createComment(context.issue({body: body}));
+    }
+
+    const issue = context.payload.issue;
+    if (issue.state !== "open")
+      return respond('Issue 已关闭，不能认领了');
+    if (issue.assignee)
+      return respond('Issue 已经被认领了，不能重复认领');
+    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+      return respond('不能认领非字幕 issue');
+
+    const user = context.payload.comment.user.login;
+    await context.github.issues.addAssignees(context.issue({assignees: [user]}));
+    respond([
+      `@${user} 谢谢认领！`,
+      '',
+      '完成翻译后，请将完整稿件复制并回复到本 issue。',
+      '参考：[翻译及投稿步骤](../blob/master/tutorial/upload-subtitles-new.md) [翻译守则](../blob/master/docs/guidelines.md#翻译守则)'
+    ].join('\n'));
+  });
+
+  // When someone looks like trying to be assigned, prompt them to reply '认领'
+  app.on('issue_comment.created', async context => {
+    const body = context.payload.comment.body.trim();
+    if (body == '认领')
+      return;
+    if (body.length > 4)
+      return;
+
+    const issue = context.payload.issue;
+    if (issue.state !== "open")
+      return;
+    if (issue.assignee)
+      return;
+    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+      return;
+
+    function respond(body) {
+      context.github.issues.createComment(context.issue({body: body}));
+    }
+
+    const user = context.payload.comment.user.login;
+    respond(`@${user} 如果想要认领 issue, 请回复“认领”两个字（不包含引号）`);
+  });
+
   // When a pull request is merged, and it (1) is a subtitle upload, (2) mentions an open issue with a
   // channel label, then (a) apply "待上传" label to issue
   app.on('pull_request.closed', async context => {
