@@ -245,25 +245,33 @@ module.exports = app => {
   // 1. Creates a pull request that adds a single file with the subtitles as file content
   // 2. Replies to the issue and folds the subtitles in the previous comment
   app.on('issue_comment.created', async context => {
+    function respond(body) {
+      context.github.issues.createComment(context.issue({body: body}));
+    }
+
     if (context.payload.issue.pull_request)
-      return;
-    if (!context.payload.issue.assignee)
-      return;
-    const author = context.payload.sender;
-    if (author.id !== context.payload.issue.assignee.id)
       return;
     if (!context.payload.issue.labels)
       return;
+
     const labels = context.payload.issue.labels.map(label => label.name);
     const channel = Channels.findChannelFromLabels(labels);
     if (!channel)
       return;
     const channelLabel = channel.label;
     const channelFolder = channel.folder;
+
     const comment = context.payload.comment.body;
     const raw_subtitles = getSubtitleRequestBody(comment);
     if (!raw_subtitles)
       return;
+
+    const author = context.payload.sender;
+    if (!context.payload.issue.assignee)
+      return respond(`@${author.login} 请先认领后再交稿。认领方法为回复“认领”二字（不包含引号）`);
+    if (author.id !== context.payload.issue.assignee.id)
+      return respond(`@${author.login} 只有本 issue 的认领者才能这样交稿`);
+
     const url = Utils.getVideoURLFromTitle(context.payload.issue.title) || 'https://youtu.be/XXXXXXXXXXX';
 
     // There's some duplicated work here, but who cares
