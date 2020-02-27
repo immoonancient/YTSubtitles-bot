@@ -271,3 +271,86 @@ test('formatSubtitles() #708', () => {
   const output = Formatter.format(input, url);
   expect(output).toEqual(expected);
 });
+
+test('formatSubtitles() 191019_Nuo_mi_fan', () => {
+  const url = 'https://youtu.be/XXXXXXXXXX';
+
+  const input = [
+    '00:02:19,080 --> 00:02:21,880',
+    '糯米吃起来是比较筋道 弹牙',
+    'The glutinous rice is relatively chewy     #还是al dente?'
+  ].join('\n');
+
+  // Should identify English line correctly even if it contains Chinese comment
+  const expected = [
+    `# ${url}`,
+    '',
+    '1',
+    '00:02:19,080 --> 00:02:21,880',
+    '# 糯米吃起来是比较筋道 弹牙',
+    'The glutinous rice is relatively chewy     #还是al dente?'
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});
+
+test('formatSubtitles() 20191103-han-kao-jia', () => {
+  const url = 'https://youtu.be/XXXXXXXXXX';
+
+  const input = [
+    '0:02:41.695,0:02:42.805',
+    '对了',
+    'Yeah',
+    '',
+    '0:02:53.245,0:02:54.245',
+    '90厘米',
+    '90 centimeters',
+    '',
+    '0:02:54.300,0:02:55.300',
+    '90',
+    '90'
+  ].join('\n');
+
+  // Should identify a Chinese line correctly even if it contains no Chinese
+  const expected = [
+    `# ${url}`,
+    '',
+    '0:02:41.695,0:02:42.805',
+    '# 对了',
+    'Yeah',
+    '',
+    '0:02:53.245,0:02:54.245',
+    '# 90厘米',
+    '90 centimeters',
+    '',
+    '0:02:54.300,0:02:55.300',
+    '# 90',
+    '90'
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});
+
+test('formatSubtitles() 20190909-fo-tiao-qiang', () => {
+  const url = 'https://youtu.be/XXXXXXXXXX';
+
+  const input = [
+    '00:06:34.680,00:06:36.160',
+    '蹄筋就是蹄筋没错,就是像一个人字形的嘛',
+    'Tendon is correct, looks like the Chinese character "人" ("ren", human)'
+  ].join('\n');
+
+  // Should identify an English line correctly even if it mixes a little Chinese
+  const expected = [
+    `# ${url}`,
+    '',
+    '00:06:34.680,00:06:36.160',
+    '# 蹄筋就是蹄筋没错,就是像一个人字形的嘛',
+    'Tendon is correct, looks like the Chinese character "人" ("ren", human)'
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});
