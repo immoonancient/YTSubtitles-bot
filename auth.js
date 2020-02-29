@@ -10,7 +10,7 @@ async function Auth() {
   });
   const appAuthentication = await auth({ type: "installation" });
 
-  const Octokit = require('@octokit/rest');
+  const { Octokit } = require('@octokit/rest');
   return new Octokit({auth: appAuthentication.token});
 }
 
