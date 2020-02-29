@@ -1,4 +1,5 @@
 const Timeline = require('./timeline.js');
+const Unicode = require('unicode-properties');
 
 function isEmptyLine(line) {
   return line === '' || line === '#';
@@ -34,6 +35,7 @@ class Subtitle {
     this.timeline = timeline || new Timeline();
     if (!Array.isArray(captions))
       captions = [captions];
+    captions = captions.map(line => line.startsWith('#') ? line.substring(1).trim() : line);
     this.captions = captions.filter(line => typeof line === 'string');
     this.engLineStart = start || 0;
     if (this.engLineStart > this.captions.length)
@@ -66,7 +68,6 @@ class Subtitle {
     lines = next;
 
     let captions = [];
-    let engLineStart = 0;
     while (lines.length) {
       if (isEmptyLine(lines[0]))
         break;
@@ -75,20 +76,48 @@ class Subtitle {
       if (nextTimeline)
         break;
 
-      let line = lines[0];
+      captions.push(lines[0]);
       lines = lines.slice(1);
-      if (engLineStart === captions.length && line.startsWith('#')) {
-        line = line.substring(1).trim();
-        ++engLineStart;
-      }
-      captions.push(line);
     }
 
-    // Heuristic: if there are multiple captions lines, while no line starts with '#',
-    // assume that the first line is the Chinese line
-    if (captions.length > 1 && engLineStart == 0)
-      engLineStart = 1;
+    function findFirstEnglishLine(lines) {
+      if (lines.length === 0)
+        return 0;
 
+      // TODO: report uncertainties
+
+      // Assume there's always at least one Chinese line
+      // When there are two lines, assume the second line is English
+      let result = 1;
+      if (lines.length <= 2)
+        return result;
+
+      for (let i = 1; i < lines.length; ++i) {
+        let line = lines[i];
+        let eng = 0;
+        let han = 0;
+        let other = 0;
+        if (line.indexOf('#') !== -1)
+          line = line.substring(line.indexOf('#')).trim();
+        for (let ch of line) {
+          let script = Unicode.getScript(ch.charCodeAt(0));
+          if (script === 'Han')
+            ++han;
+          else if (script === 'Latin')
+            ++eng;
+          else
+            ++other;
+        }
+        // Heuristic that should work most of the time
+        if (han * 2 > line.length || eng * 10 < line.length)
+          ++result;
+        else
+          break;
+      }
+      return result;
+    }
+
+    let engLineStart = findFirstEnglishLine(captions);
     return [new Subtitle(timeline, captions, engLineStart), lines];
   }
 
