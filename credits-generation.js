@@ -1,29 +1,24 @@
 require('dotenv').config();
 
-const Octokit = require('@octokit/rest');
-const octokit = new Octokit({
-  auth: {
-    username: process.env.AUTH_USERNAME,
-    password: process.env.AUTH_PASSWORD,
-    async on2fa() {
-     return prompt("Two-factor authentication Code:");
-    }
-  }
-});
+async function createMockContext() {
+  const Auth = require('./auth.js');
+  const octokit = await Auth();
 
-const mockContext = {
-  issue: function(params) {
-    const result = {
-      owner: process.env.REPO_OWNER,
-      repo: process.env.REPO
-    };
-    for (let key in params)
-      result[key] = params[key];
-    return result;
-  },
+  const mockContext = {
+    issue: function(params) {
+      const result = {
+        owner: process.env.REPO_OWNER,
+        repo: process.env.REPO
+      };
+      for (let key in params)
+        result[key] = params[key];
+      return result;
+    },
 
-  github: octokit
-};
+    github: octokit
+  };
+  return mockContext;
+}
 
 const Channels = require('./channels.js');
 const Utils = require('./utils.js');
@@ -81,7 +76,7 @@ class Contribution {
   }
 };
 
-async function listPulls(channel, startDate, endDate) {
+async function listPulls(context, channel, startDate, endDate) {
   const result = {};
 
   function handlePull(pull, done) {
@@ -100,11 +95,11 @@ async function listPulls(channel, startDate, endDate) {
     result[pull.number] = pull;
   }
 
-  const options = octokit.pulls.list.endpoint.merge({
+  const options = context.github.pulls.list.endpoint.merge({
         owner: process.env.REPO_OWNER,
         repo: process.env.REPO,
         state: 'all'});
-  await octokit.paginate(options, (response, done) => {
+  await context.github.paginate(options, (response, done) => {
     response.data.forEach(pull => handlePull(pull, done));
   });
 
@@ -112,16 +107,16 @@ async function listPulls(channel, startDate, endDate) {
   return result;
 }
 
-async function matchIssues(channel, pulls) {
+async function matchIssues(context, channel, pulls) {
   result = {};
   async function matchIssue(pull) {
-    const issueNumber = await Utils.getSubtitleIssueNumber(mockContext, pull);
+    const issueNumber = await Utils.getSubtitleIssueNumber(context, pull);
     if (!issueNumber) {
       console.log(`Failed to find matching issue number for pull request #${pull.number}`);
       return;
     }
     console.log(`Pull #${pull.number} matches issue #${issueNumber}`)
-    const issue = await Utils.getIssue(mockContext, issueNumber);
+    const issue = await Utils.getIssue(context, issueNumber);
     result[issue.number] = issue;
   }
 
@@ -144,9 +139,9 @@ function countTranslationContributions(issues, contributions) {
   }
 }
 
-async function countReviewContributions(pulls, contributions) {
+async function countReviewContributions(context, pulls, contributions) {
   async function countReviewsInPull(number) {
-    const reviews = await Utils.getReviews(mockContext, number);
+    const reviews = await Utils.getReviews(context, number);
     for (let review of reviews) {
       // TODO: Filter out non-review operations while reducing false negatives
       if (review.state === 'COMMENTED')
@@ -164,14 +159,16 @@ async function countReviewContributions(pulls, contributions) {
 }
 
 async function getContributionList(channel, startDate, endDate) {
+  const mockContext = await createMockContext();
+
   const channelName = channel.label;
 
-  const pulls = await listPulls(channel, startDate, endDate);
-  const issues = await matchIssues(channel, pulls);
+  const pulls = await listPulls(mockContext, channel, startDate, endDate);
+  const issues = await matchIssues(mockContext, channel, pulls);
 
   const contributions = {};
   await countTranslationContributions(issues, contributions);
-  await countReviewContributions(pulls, contributions);
+  await countReviewContributions(mockContext, pulls, contributions);
 
   const contributionList = Object.keys(contributions).map(name => contributions[name]);
 
