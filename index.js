@@ -8,6 +8,8 @@ const Formatter = require('./formatter/formatter.js');
 
 const Credits = require('./credits-generation.js');
 
+const PublishChecker = require('./publish-checker.js');
+
 const statusLabels = [
   '待翻译',
   '待审阅',
@@ -378,4 +380,5 @@ module.exports = app => {
   Channels.addListChannelRoute(router, '/list-channels')
   Credits.addRoute(router, '/credits');
   Formatter.addRoute(router, '/format');
+  PublishChecker.addRoute(router, '/check-publish');
 }
