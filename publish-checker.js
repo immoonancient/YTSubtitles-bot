@@ -80,7 +80,7 @@ async function updateSubtitleIssueStatus() {
 
       // status === 'published'
       await manageIssue('createComment', {body: '已发布'});
-      await manageIssue('update', {status: 'closed'});
+      await manageIssue('update', {state: 'closed'});
     }
 
     async function handleAwaitPublishIssue() {
@@ -91,7 +91,7 @@ async function updateSubtitleIssueStatus() {
 
       await manageIssue('removeLabel', {name: '待发布'});
       await manageIssue('createComment', {body: '已发布'});
-      await manageIssue('update', {status: 'closed'});
+      await manageIssue('update', {state: 'closed'});
     }
 
     if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
