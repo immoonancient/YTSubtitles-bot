@@ -44,3 +44,8 @@ test('mainTitleToPinyin() #641', () => {
   const title = '【雪鱼】广东炖汤-https://www.youtube.com/watch?v=7Rs_ElFXpN4';
   expect(Utils.mainTitleToPinyin(title)).toBe('guang-dong-dun-tang');
 })
+
+test('mainTitleToPinyin() #743', () => {
+  const title = '【老饭骨】虾爆鳝 https://www.youtube.com/watch?v=Dal0VbnlPDM';
+  expect(Utils.mainTitleToPinyin(title)).toBe('xia-bao-shan');
+});

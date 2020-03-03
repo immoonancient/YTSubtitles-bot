@@ -141,7 +141,7 @@ function getVideoURLFromTitle(title) {
 Utils['getVideoURLFromTitle'] = getVideoURLFromTitle;
 
 function mainTitleToPinyin(title) {
-  let re = /.*[\]】](.*)-\s*https:\/\/(youtu\.be\/|www\.youtube\.com\/watch\?v=)[A-Za-z0-9_\-]+/;
+  let re = /.*[\]】](.*)-?\s*https:\/\/(youtu\.be\/|www\.youtube\.com\/watch\?v=)[A-Za-z0-9_\-]+/;
   let m = title.match(re);
   if (m)
     return Pinyin(m[1].trim(), {removeTone: true}).split(' ').join('-');
