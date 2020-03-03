@@ -172,7 +172,8 @@ module.exports = app => {
       return respond('Issue 已关闭，不能认领了');
     if (issue.assignee)
       return respond('Issue 已经被认领了，不能重复认领');
-    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+    const channel = Channels.findChannelFromLabels(issue.labels.map(label => label.name));
+    if (!channel)
       return respond('不能认领非字幕 issue');
 
     const user = context.payload.comment.user.login;
@@ -181,7 +182,12 @@ module.exports = app => {
       `@${user} 谢谢认领！`,
       '',
       '完成翻译后，请将完整稿件复制并回复到本 issue。',
-      '参考：[翻译及投稿步骤](../blob/master/tutorial/upload-subtitles-new.md) [翻译守则](../blob/master/docs/guidelines.md#翻译守则)'
+      [
+        '参考:',
+        '[翻译及投稿步骤](../blob/master/tutorial/upload-subtitles-new.md)',
+        '[翻译守则](../blob/master/docs/guidelines.md#翻译守则)',
+        `[往期翻译](../blob/master/subtitles/${channel.folder}/)`
+      ].join(' ')
     ].join('\n'));
   });
 
