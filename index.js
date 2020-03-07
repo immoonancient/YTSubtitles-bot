@@ -37,21 +37,6 @@ async function removeAllStatusLabels(context, issueNumber) {
   });
 }
 
-function getSubtitleRequestBody(message) {
-  function containsSubtitles(message) {
-    return Formatter.testFormat(message);
-  }
-
-  const header = 'bot, please upload';
-  if (message.startsWith(header))
-    return message.substring(header.length);
-  
-  if (containsSubtitles(message))
-    return message;
-
-  return null;
-}
-
 async function addTranslationHints(context) {
   if (context.payload.issue.pull_request)
     return;
@@ -257,6 +242,48 @@ module.exports = app => {
       context.github.issues.createComment(context.issue({body: body}));
     }
 
+    function getSubtitleRequestBody(payload) {
+      const sender = payload.sender;
+      const assignee = payload.issue.assignee;
+      const comment = payload.comment.body;
+
+      {
+        // bot, please upload on behalf of the assignee (owner only)
+        const header = 'bot, please upload on behalf of the assignee';
+        if (comment.startsWith(header)) {
+          if (!assignee)
+            throw new Error('本 issue 尚未有人认领，无法交稿');
+          if (sender.id !== assignee.id && sender.id !== payload.repository.owner.id)
+            throw new Error('只有管理员可以代替其他组员交稿');
+          return comment.substring(header.length);
+        }
+      }
+
+      // bot, please upload (assignee only)
+      {
+        const header = 'bot, please upload';
+        if (comment.startsWith(header)) {
+          if (!assignee)
+            throw new Error(`@${sender.login} 请先认领后再交稿。认领方法为回复“认领”二字（不包含引号）`);
+          if (sender.id !== assignee.id)
+            throw new Error(`@${sender.login} 只有本 issue 的认领者才能这样交稿`);
+          return comment.substring(header.length);
+        }
+      }
+
+      // (no explicit command, asignee only)
+      function containsSubtitles(message) {
+        return Formatter.testFormat(message);
+      }
+      if (containsSubtitles(comment)) {
+          if (!assignee)
+            throw new Error(`@${sender.login} 请先认领后再交稿。认领方法为回复“认领”二字（不包含引号）`);
+          if (sender.id !== assignee.id)
+            throw new Error(`@${sender.login} 只有本 issue 的认领者才能这样交稿`);
+          return comment;
+      }
+    }
+
     if (context.payload.issue.pull_request)
       return;
     if (!context.payload.issue.labels)
@@ -269,17 +296,18 @@ module.exports = app => {
     const channelLabel = channel.label;
     const channelFolder = channel.folder;
 
-    const comment = context.payload.comment.body;
-    const raw_subtitles = getSubtitleRequestBody(comment);
+    let raw_subtitles;
+    try {
+      raw_subtitles = getSubtitleRequestBody(context.payload);
+    } catch (error) {
+      respond(error.message);
+      return;
+    }
+
     if (!raw_subtitles)
       return;
 
-    const author = context.payload.sender;
-    if (!context.payload.issue.assignee)
-      return respond(`@${author.login} 请先认领后再交稿。认领方法为回复“认领”二字（不包含引号）`);
-    if (author.id !== context.payload.issue.assignee.id)
-      return respond(`@${author.login} 只有本 issue 的认领者才能这样交稿`);
-
+    const author = context.payload.issue.assignee;
     const url = Utils.getVideoURLFromTitle(context.payload.issue.title) || 'https://youtu.be/XXXXXXXXXXX';
 
     // There's some duplicated work here, but who cares
