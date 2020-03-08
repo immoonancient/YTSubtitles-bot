@@ -178,10 +178,20 @@ module.exports = app => {
 
   // When someone looks like trying to be assigned, prompt them to reply '认领'
   app.on('issue_comment.created', async context => {
+    function mayBeAssignAttempt(comment) {
+      if (comment === '认领')
+        return false;
+      if (comment.length > 100)
+        return false;
+      if (comment.length < 4)
+        return true;
+      if (comment.indexOf('认领') !== -1 &&
+          context.payload.sender.id !== context.payload.repository.owner.id)
+        return true;
+      return false;
+    }
     const body = context.payload.comment.body.trim();
-    if (body == '认领')
-      return;
-    if (body.length > 4)
+    if (!mayBeAssignAttempt(body))
       return;
 
     const issue = context.payload.issue;
