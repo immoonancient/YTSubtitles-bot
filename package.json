@@ -16,10 +16,12 @@
     "yargs": "^15.1.0"
   },
   "devDependencies": {
-    "jest": "^24.9.0"
+    "jest": "^24.9.0",
+    "nodemon": "^2.0.2"
   },
   "scripts": {
     "test": "jest",
+    "dev": "nodemon node_modules/probot/bin/probot.js run ./index.js",
     "start": "probot run ./index.js"
   },
   "author": "Xiaocheng Hu",

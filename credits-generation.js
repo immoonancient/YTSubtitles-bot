@@ -108,7 +108,7 @@ async function listPulls(context, channel, startDate, endDate) {
 }
 
 async function matchIssues(context, channel, pulls) {
-  result = {};
+  const result = {};
   async function matchIssue(pull) {
     const issueNumber = await Utils.getSubtitleIssueNumber(context, pull);
     if (!issueNumber) {
@@ -117,6 +117,7 @@ async function matchIssues(context, channel, pulls) {
     }
     console.log(`Pull #${pull.number} matches issue #${issueNumber}`)
     const issue = await Utils.getIssue(context, issueNumber);
+    pull.matchedIssue = issue;
     result[issue.number] = issue;
   }
 
@@ -141,21 +142,52 @@ function countTranslationContributions(issues, contributions) {
 
 async function countReviewContributions(context, pulls, contributions) {
   async function countReviewsInPull(number) {
-    const reviews = await Utils.getReviews(context, number);
-    for (let review of reviews) {
-      // TODO: Filter out non-review operations while reducing false negatives
-      if (review.state === 'COMMENTED')
-        continue;
-      const name = review.user.login;
+    async function hasValidReviews(reviews) {
+      let commentCount = 0;
+      for (let review of reviews) {
+        // Approvals and changes needed are valid reviews
+        if (review.state !== 'COMMENTED')
+          return true;
+        // Repo owner sometimes does some trivial modifications like formatting
+        // Discard his reviews if he didn't explicit state approval
+        if (review.user.login === process.env.REPO_OWNER)
+          continue;
+        // A rough heuristic: someone with >= 5 comments on a pull request counts as a review
+        const comments = await context.github.pulls.getCommentsForReview(context.issue({pull_number: number, review_id: review.id}));
+        commentCount += comments.data.length;
+      }
+      if (commentCount >= 5)
+        return true;
+      console.log(`User @${reviews[0].user.login} commented on #${number} but doesn't count`);
+      return false;
+    }
+
+    async function collectValidReviews(userReviews) {
+      const name = userReviews[0].user.login;
+      if (name === pulls[number].matchedIssue.assignee.login)
+        return;
+      if (!await hasValidReviews(userReviews))
+        return;
       if (!contributions[name])
         contributions[name] = new Contribution(name);
       contributions[name].addReview(number);
     }
+
+    const reviews = {};
+    for (let review of await Utils.getReviews(context, number)) {
+      const name = review.user.login;
+      if (!reviews[name])
+        reviews[name] = [];
+      reviews[name].push(review);
+    }
+    await Promise.all(Object.keys(reviews).map(name => collectValidReviews(reviews[name])));
   }
 
   await Promise.all(
-    Object.keys(pulls).map(
-      number => countReviewsInPull(number)));
+    Object
+      .keys(pulls)
+      .filter(number => pulls[number].matchedIssue)
+      .map(number => countReviewsInPull(number)));
 }
 
 async function getContributionList(channel, startDate, endDate) {
