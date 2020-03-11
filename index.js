@@ -164,7 +164,7 @@ module.exports = app => {
     const user = context.payload.comment.user.login;
     await context.github.issues.addAssignees(context.issue({assignees: [user]}));
     respond([
-      `@${user} 谢谢认领！`,
+      `@${user} 谢谢认领！请在 48 小时内完成翻译。`,
       '',
       '完成翻译后，请将完整稿件复制并回复到本 issue。',
       [
@@ -179,6 +179,8 @@ module.exports = app => {
   // When someone looks like trying to be assigned, prompt them to reply '认领'
   app.on('issue_comment.created', async context => {
     function mayBeAssignAttempt(comment) {
+      if (context.payload.sender.type === 'Bot')
+        return false;
       if (comment === '认领')
         return false;
       if (comment.length > 100)
