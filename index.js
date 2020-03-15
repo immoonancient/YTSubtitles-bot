@@ -37,34 +37,39 @@ async function removeAllStatusLabels(context, issueNumber) {
   });
 }
 
-async function addTranslationHints(context) {
-  if (context.payload.issue.pull_request)
-    return;
-  const hinter = await Hinter.create();
-  const body = context.payload.issue.body;
-  const hints = hinter.getHints(body);
-  if (!hints)
-    return;
-  const reply = ['对照翻译建议，根据[对译表](https://github.com/immoonancient/YTSubtitles/blob/master/docs/translation-table.md)生成', ''];
-  for (let hint in hints)
-    reply.push(`${hint}: ${hints[hint]}`);
-  const parameters = context.issue({body: reply.join('\n')});
-  console.log(parameters);
-  context.github.issues.createComment(parameters);
-}
-
 module.exports = app => {
   // Channel and "待翻译" to new issues
-  // Also add translation hints
   app.on('issues.opened', async context => {
-    addTranslationHints(context);
-
     const title = context.payload.issue.title;
     const channel = Channels.findChannelFromTitle(title);
     if (!channel)
       return;
     const labels = ['待翻译', channel.label];
     context.github.issues.addLabels(context.issue({labels: labels}));
+  });
+
+  // Post translation hints if needed
+  app.on('issues.labeled', async context => {
+    if (context.payload.issue.pull_request)
+      return;
+    const label = context.payload.label.name;
+    const channel = Channels.findChannelFromLabels([label]);
+    if (!channel)
+      return;
+    const hinter = await Hinter.create();
+    const body = context.payload.issue.body;
+    const hints = hinter.getHints(body, channel.folder);
+    if (!hints)
+      return;
+    const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
+    reply.push('| 中文 | English | 备注 |');
+    reply.push('| ---- | ------- | ---- |');
+    for (let hint in hints) {
+      for (let term of hints[hint]) {
+        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} |`);
+      }
+    }
+    context.github.issues.createComment(context.issue({body: reply.join('\n')}));
   });
 
   // When a pull request is opened, and it (1) is a subtitle upload, and (2) mentions an issue when opened,
@@ -160,10 +165,26 @@ module.exports = app => {
     const channel = Channels.findChannelFromLabels(issue.labels.map(label => label.name));
     if (!channel)
       return respond('不能认领非字幕 issue');
+    if (!Utils.getVideoIDFromTitle(context.payload.issue.title))
+      return respond('不能认领非字幕 issue');
 
     const user = context.payload.comment.user.login;
-    await context.github.issues.addAssignees(context.issue({assignees: [user]}));
-    respond([
+    context.github.issues.addAssignees(context.issue({assignees: [user]}));
+  });
+
+  // When someone gets assigned to a subtitle issue, prompt next steps
+  app.on('issues.assigned', async context => {
+    const issue = context.payload.issue;
+    if (issue.state !== "open")
+      return;
+    const channel = Channels.findChannelFromLabels(issue.labels.map(label => label.name));
+    if (!channel)
+      return;
+    if (!Utils.getVideoIDFromTitle(context.payload.issue.title))
+      return;
+
+    const user = context.payload.assignee.login;
+    const body = [
       `@${user} 谢谢认领！请在 48 小时内完成翻译。`,
       '',
       '完成翻译后，请将完整稿件复制并回复到本 issue。',
@@ -173,7 +194,8 @@ module.exports = app => {
         '[翻译守则](../blob/master/docs/guidelines.md#翻译守则)',
         `[往期翻译](../blob/master/subtitles/${channel.folder}/)`
       ].join(' ')
-    ].join('\n'));
+    ].join('\n');
+    context.github.issues.createComment(context.issue({body: body}));
   });
 
   // When someone looks like trying to be assigned, prompt them to reply '认领'
