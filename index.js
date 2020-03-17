@@ -72,6 +72,32 @@ module.exports = app => {
     context.github.issues.createComment(context.issue({body: reply.join('\n')}));
   });
 
+  // Post translation hints if needed
+  app.on('issue_comment.created', async context => {
+    if (context.payload.comment.body !== 'bot, please hint')
+      return;
+    if (context.payload.issue.pull_request)
+      return;
+    const labels = context.payload.issue.labels.map(label => label.name);
+    const channel = Channels.findChannelFromLabels(labels);
+    if (!channel)
+      return;
+    const hinter = await Hinter.create();
+    const body = context.payload.issue.body;
+    const hints = hinter.getHints(body, channel.folder);
+    if (!hints)
+      return;
+    const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
+    reply.push('| 中文 | English | 备注 |');
+    reply.push('| ---- | ------- | ---- |');
+    for (let hint in hints) {
+      for (let term of hints[hint]) {
+        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} |`);
+      }
+    }
+    context.github.issues.createComment(context.issue({body: reply.join('\n')}));
+  });
+
   // When a pull request is opened, and it (1) is a subtitle upload, and (2) mentions an issue when opened,
   // (3) the issue is open and contains a channel label, then (a) apply channel label to pull request,
   // and (b) apply "待审阅" label to issue
