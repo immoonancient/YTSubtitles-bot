@@ -15,10 +15,14 @@ async function Instance() {
 
   const authClient = await auth.getClient();
 
+  console.log("Youtube Data API v3 auth client created");
+
   async function getCaptionSummary(videoId, language) {
+    console.log(`getCaptionSummary('${videoId}', '${language}')`);
     language = language || 'en';
     const response = await youtube.captions.list({
       part: 'id, snippet',
+      fields: 'items(id,snippet(language, status, isDraft, lastUpdated))',
       videoId: videoId,
       auth: authClient
     });
@@ -30,6 +34,7 @@ async function Instance() {
   }
 
   async function downloadCaption(captionId) {
+    console.log(`downloadCaption('${captionId}')`);
     const response = await youtube.captions.download({
       id: captionId,
       auth: authClient
