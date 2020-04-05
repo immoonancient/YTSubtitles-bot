@@ -50,6 +50,12 @@ module.exports = app => {
 
   // Post translation hints if needed
   app.on('issues.labeled', async context => {
+    function refLink(link) {
+      if (!link)
+        return '';
+      return `[链接](${link})`
+    }
+
     if (context.payload.issue.pull_request)
       return;
     const label = context.payload.label.name;
@@ -62,11 +68,11 @@ module.exports = app => {
     if (!hints)
       return;
     const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
-    reply.push('| 中文 | English | 备注 |');
-    reply.push('| ---- | ------- | ---- |');
+    reply.push('| 中文 | English | 备注 | 参考 |');
+    reply.push('| ---- | ------- | ---- | ---- |');
     for (let hint in hints) {
       for (let term of hints[hint]) {
-        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} |`);
+        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} | ${refLink(term.reference)}`);
       }
     }
     context.github.issues.createComment(context.issue({body: reply.join('\n')}));
@@ -74,6 +80,12 @@ module.exports = app => {
 
   // Post translation hints if needed
   app.on('issue_comment.created', async context => {
+    function refLink(link) {
+      if (!link)
+        return '';
+      return `[链接](${link})`
+    }
+
     if (context.payload.comment.body !== 'bot, please hint')
       return;
     if (context.payload.issue.pull_request)
@@ -88,11 +100,11 @@ module.exports = app => {
     if (!hints)
       return;
     const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
-    reply.push('| 中文 | English | 备注 |');
-    reply.push('| ---- | ------- | ---- |');
+    reply.push('| 中文 | English | 备注 | 参考 |');
+    reply.push('| ---- | ------- | ---- | ---- |');
     for (let hint in hints) {
       for (let term of hints[hint]) {
-        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} |`);
+        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} | ${refLink(term.reference)}`);
       }
     }
     context.github.issues.createComment(context.issue({body: reply.join('\n')}));

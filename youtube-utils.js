@@ -22,7 +22,7 @@ async function Instance() {
     language = language || 'en';
     const response = await youtube.captions.list({
       part: 'id, snippet',
-      fields: 'items(id,snippet(language, status, isDraft, lastUpdated))',
+      // fields: 'items(id,snippet(language, status, isDraft, lastUpdated))',
       videoId: videoId,
       auth: authClient
     });
