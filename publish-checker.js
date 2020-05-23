@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const Channels = require('./channels.js')();
+const Channels = require('./channels.js');
 const Utils = require('./utils.js');
 
 async function updateSubtitleIssueStatus() {
