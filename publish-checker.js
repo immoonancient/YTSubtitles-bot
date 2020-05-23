@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const Channels = require('./channels.js');
+const Channels = require('./channels.js')();
 const Utils = require('./utils.js');
 
 async function updateSubtitleIssueStatus() {
@@ -94,7 +94,7 @@ async function updateSubtitleIssueStatus() {
       await manageIssue('update', {state: 'closed'});
     }
 
-    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+    if (!await Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
       return;
     const url = Utils.getVideoURLFromTitle(issue.title);
     if (!url)

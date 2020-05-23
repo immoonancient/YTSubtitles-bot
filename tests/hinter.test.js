@@ -13,9 +13,16 @@ test('Hinter #791', async () => {
 
   expect(hints).toEqual({
     "焯水": [{
-      cn: "焯水",
-      en: "parboil",
-      category: "technical"
+      "cn": "焯水",
+      "en": "parboil",
+      "category": "technical",
+      "notes": "主要用于生肉焯水去除异味血水"
+    },
+    {
+      "cn": "焯水",
+      "en": "blanch",
+      "category": "technical",
+      "notes": "主要用于蔬菜等快速烫熟"
     }],
     "料酒": [{
       cn: "料酒",

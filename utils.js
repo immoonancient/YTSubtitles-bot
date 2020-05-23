@@ -44,7 +44,7 @@ Utils['getAllLabels'] = getAllLabels;
 
 async function getChannel(context, number) {
   const labels = await getAllLabels(context, number);
-  return Channels.findChannelFromLabels(labels);
+  return await Channels.findChannelFromLabels(labels);
 }
 Utils['getChannel'] = getChannel;
 

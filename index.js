@@ -41,7 +41,7 @@ module.exports = app => {
   // Channel and "待翻译" to new issues
   app.on('issues.opened', async context => {
     const title = context.payload.issue.title;
-    const channel = Channels.findChannelFromTitle(title);
+    const channel = await Channels.findChannelFromTitle(title);
     if (!channel)
       return;
     const labels = ['待翻译', channel.label];
@@ -59,7 +59,7 @@ module.exports = app => {
     if (context.payload.issue.pull_request)
       return;
     const label = context.payload.label.name;
-    const channel = Channels.findChannelFromLabels([label]);
+    const channel = await Channels.findChannelFromLabels([label]);
     if (!channel)
       return;
     const hinter = await Hinter.create();
@@ -91,7 +91,7 @@ module.exports = app => {
     if (context.payload.issue.pull_request)
       return;
     const labels = context.payload.issue.labels.map(label => label.name);
-    const channel = Channels.findChannelFromLabels(labels);
+    const channel = await Channels.findChannelFromLabels(labels);
     if (!channel)
       return;
     const hinter = await Hinter.create();
@@ -200,7 +200,7 @@ module.exports = app => {
       return respond('Issue 已关闭，不能认领了');
     if (issue.assignee)
       return respond('Issue 已经被认领了，不能重复认领');
-    const channel = Channels.findChannelFromLabels(issue.labels.map(label => label.name));
+    const channel = await Channels.findChannelFromLabels(issue.labels.map(label => label.name));
     if (!channel)
       return respond('不能认领非字幕 issue');
     if (!Utils.getVideoIDFromTitle(context.payload.issue.title))
@@ -215,7 +215,7 @@ module.exports = app => {
     const issue = context.payload.issue;
     if (issue.state !== "open")
       return;
-    const channel = Channels.findChannelFromLabels(issue.labels.map(label => label.name));
+    const channel = await Channels.findChannelFromLabels(issue.labels.map(label => label.name));
     if (!channel)
       return;
     if (!Utils.getVideoIDFromTitle(context.payload.issue.title))
@@ -261,7 +261,7 @@ module.exports = app => {
       return;
     if (issue.assignee)
       return;
-    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+    if (!await Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
       return;
 
     function respond(body) {
@@ -287,7 +287,7 @@ module.exports = app => {
     const issue = await Utils.getIssue(context, issueNumber);
     if (!issue || issue.state !== 'open')
       return;
-    if (!Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
+    if (!await Channels.findChannelFromLabels(issue.labels.map(label => label.name)))
       return;
     if (!issue.assignee)
       return;
@@ -362,7 +362,7 @@ module.exports = app => {
       return;
 
     const labels = context.payload.issue.labels.map(label => label.name);
-    const channel = Channels.findChannelFromLabels(labels);
+    const channel = await Channels.findChannelFromLabels(labels);
     if (!channel)
       return;
     const channelLabel = channel.label;

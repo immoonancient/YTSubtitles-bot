@@ -79,9 +79,9 @@ class Contribution {
 async function listPulls(context, channel, startDate, endDate) {
   const result = {};
 
-  function handlePull(pull, done) {
+  async function handlePull(pull, done) {
     const labels = pull.labels.map(label => label.name);
-    if (!labels || Channels.findChannelFromLabels(labels) != channel)
+    if (!labels || (await Channels.findChannelFromLabels(labels)) != channel)
       return;
     const date = new Date(pull.created_at);
     if (date >= endDate)
@@ -99,10 +99,12 @@ async function listPulls(context, channel, startDate, endDate) {
         owner: process.env.REPO_OWNER,
         repo: process.env.REPO,
         state: 'all'});
+  const allPulls = [];
   await context.github.paginate(options, (response, done) => {
-    response.data.forEach(pull => handlePull(pull, done));
+    allPulls.push(...response.data.map(pull => handlePull(pull, done)));
   });
 
+  await Promise.all(allPulls);
   console.log('All pull requests listed');
   return result;
 }
@@ -211,7 +213,7 @@ async function getContributionList(channel, startDate, endDate) {
 
 // Note: monthIndex is 0-based, i.e., January is 0, not 1
 async function createContributionTable(channelName, year, monthIndex) {
-  const channel = Channels.findChannelFromTitle(`[${channelName}]`);
+  const channel = await Channels.findChannelFromTitle(`[${channelName}]`);
   const startDate = new Date(year, monthIndex);
   const endDate = new Date(year, monthIndex + 1);
 
@@ -251,7 +253,7 @@ function addRoute(router, path) {
       return;
     }
 
-    const channel = Channels.findChannelFromFolder(req.query.channel);
+    const channel = await Channels.findChannelFromFolder(req.query.channel);
     const startDate = new Date(req.query['start-date']);
     const endDate = new Date(req.query['end-date']);
     endDate.setDate(endDate.getDate() + 1);
