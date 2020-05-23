@@ -44,6 +44,11 @@ channels.push(new Channel(
   '老饭骨',
   'lao-fan-gu'));
 
+channels.push(new Channel(
+	'馋小漆',
+	'chan-xiao-qi',
+	['漆二娃']));
+
 function findChannelFromTitle(title) {
 	return channels.find(channel => channel.match(title));
 };
