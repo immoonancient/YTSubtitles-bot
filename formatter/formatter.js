@@ -7,6 +7,7 @@ function isEmptyLine(line) {
 
 // Contents allowed within a Subtitles object:
 // - URL
+// - TitleSection
 // - CommentSection
 // - Subtitle
 
@@ -149,11 +150,18 @@ class CommentSection {
       let [timeline, _] = Subtitle.parseTimeline(lines, format);
       if (timeline)
         break;
+
       let line = lines[0];
-      lines = lines.slice(1);
       if (line.startsWith('#'))
         line = line.substring(1).trim();
+
+      if (comments.length) {
+        if (line.startsWith('标题') || line.startsWith('简介') || line.startsWith('字幕'))
+          break;
+      }
+
       comments.push(line);
+      lines = lines.slice(1);
     }
     if (!comments.length)
       return [null, lines];
@@ -162,6 +170,60 @@ class CommentSection {
 
   toString() {
     return this.lines.map(line => `# ${line}`);
+  }
+};
+
+class TitleSection {
+  constructor(lines) {
+    this.lines = lines || [];
+    this.tooLong = this.lines.some(line => line.length > 100);
+  }
+
+  // Return value: [parsed_title, remaining_lines]
+  static parse(lines, format) {
+    const originalLines = lines;
+    const titleLines = [];
+    while (lines.length) {
+      const [nextSection, nextLines] = CommentSection.parse(lines, format);
+      if (!nextSection)
+        break;
+
+      let currentLines = nextSection.lines;
+      if (currentLines[0] === '简介' || currentLines[0] === '字幕')
+        break;
+      if (currentLines[0].startsWith('标题'))
+        currentLines = currentLines.slice(1);
+      if (currentLines.length != 2)
+        break;
+
+      titleLines.push(...currentLines);
+      lines = nextLines;
+    }
+    if (!titleLines.length)
+      return [null, originalLines];
+    return [new TitleSection(titleLines), lines];
+  }
+
+  toString() {
+    if (!this.lines || !this.lines.length)
+      return [];
+
+    if (!this.tooLong) {
+      return [
+        '# 标题',
+        ...this.lines.map(line => `# ${line}`)
+      ];
+    }
+
+    const placeholder = 'title should not be longer than this line';
+    const leftLength = Math.floor((100 - 4 - placeholder.length) / 2);
+    const rightLength = 100 - 4 - placeholder.length - leftLength;
+    const markerLine = `# |${'-'.repeat(leftLength)} ${placeholder} ${'-'.repeat(rightLength)}|`;
+    return [
+      '# 标题 （标题翻译过长，请将其精简到 100 字符内）',
+      ...this.lines.map(line => `# ${line}`),
+      markerLine
+    ];
   }
 };
 
@@ -185,14 +247,23 @@ class Subtitles {
 };
 
 function fuzzyParse(lines, url, format) {
-  const contents = []; 
+  const contents = [];
+
+  function canConsumeURL() {
+    return !contents.length;
+  }
+
+  function canConsumeTitleSection() {
+    return !contents.some(content => content instanceof TitleSection || content instanceof Subtitle);
+  }
+
   while (lines.length) {
     if (isEmptyLine(lines[0])) {
       lines = lines.slice(1);
       continue;
     }
 
-    if (!contents.length) {
+    if (canConsumeURL()) {
       let url = URL.parse(lines[0]);
       if (url) {
         contents.push(url);
@@ -205,6 +276,15 @@ function fuzzyParse(lines, url, format) {
       let [subtitle, next] = Subtitle.parse(lines, format);
       if (subtitle) {
         contents.push(subtitle);
+        lines = next;
+        continue;
+      }
+    }
+
+    if (canConsumeTitleSection()) {
+      let [title, next] = TitleSection.parse(lines, format);
+      if (title) {
+        contents.push(title);
         lines = next;
         continue;
       }
@@ -308,6 +388,7 @@ module.exports = {
     CommentSection: CommentSection,
     Subtitle: Subtitle,
     Subtitles: Subtitles,
+    TitleSection: TitleSection,
     convertPassageIntoLines: convertPassageIntoLines,
     fuzzyParse: fuzzyParse
   }

@@ -59,6 +59,7 @@ test('formatSubtitles() #541', () => {
   const expected = [
     `# ${url}`,
     '',
+    '# 标题',
     '# 在顺德吃煲仔饭，40到80元一份，锅比脸还大！量大料足吃过瘾',
     '# Claypot Rice in Shunde, served in a pot bigger than your face! Big and Satisfying!',
     '',
@@ -353,4 +354,33 @@ test('formatSubtitles() 20190909-fo-tiao-qiang', () => {
 
   const output = Formatter.format(input, url);
   expect(output).toEqual(expected);
+});
+
+test('TitleSection.toString() within 100 characters', () => {
+  const title = new Formatter.testing.TitleSection([
+    '华农兄弟：嫩粽叶长出来了，摘点来包粽子，很香很好吃哦',
+    'Huanong Brothers: The young leaves are growing out. We pick some to make rice dumplings. Tasty!'
+  ]);
+  const expected = [
+    '# 标题',
+    '# 华农兄弟：嫩粽叶长出来了，摘点来包粽子，很香很好吃哦',
+    '# Huanong Brothers: The young leaves are growing out. We pick some to make rice dumplings. Tasty!'
+  ];
+
+  expect(title.toString()).toEqual(expected);
+});
+
+test('TitleSection.toString() exceeding 100 characters', () => {
+  const title = new Formatter.testing.TitleSection([
+    '厨师长分享：“宽油炸鸡”的奇怪做法？主要是分享实用的防烫技巧！ft. 手工耿 （非严肃美食教学视频，大家请勿模仿，不喜勿喷）',
+    'Chef Wang shares: A strange way of cooking \'Fried chicken in broad oil\'? Just want to share useful tips to prevent burns! ft. Craftsman Geng (手工耿) (Please don\'t imitate as this is not a serious cooking video)'
+  ]);
+  const expected = [
+    '# 标题 （标题翻译过长，请将其精简到 100 字符内）',
+    '# 厨师长分享：“宽油炸鸡”的奇怪做法？主要是分享实用的防烫技巧！ft. 手工耿 （非严肃美食教学视频，大家请勿模仿，不喜勿喷）',
+    '# Chef Wang shares: A strange way of cooking \'Fried chicken in broad oil\'? Just want to share useful tips to prevent burns! ft. Craftsman Geng (手工耿) (Please don\'t imitate as this is not a serious cooking video)',
+    `# |--------------------------- title should not be longer than this line ----------------------------|`
+  ];
+
+  expect(title.toString()).toEqual(expected);
 });
