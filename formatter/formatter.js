@@ -1,6 +1,8 @@
 const Timeline = require('./timeline.js');
 const Unicode = require('unicode-properties');
 
+// TODO: Should tokenize before parsing
+
 function isEmptyLine(line) {
   return line === '' || line === '#';
 }
@@ -8,6 +10,7 @@ function isEmptyLine(line) {
 // Contents allowed within a Subtitles object:
 // - URL
 // - TitleSection
+// - DescriptionSection
 // - CommentSection
 // - Subtitle
 
@@ -144,6 +147,8 @@ class CommentSection {
   // Return value: [parsed_comments, remaining_lines]
   static parse(lines, format) {
     let comments = [];
+    while (lines.length && isEmptyLine(lines[0]))
+      lines = lines.slice(1);
     while (lines.length) {
       if (isEmptyLine(lines[0]))
         break;
@@ -179,9 +184,20 @@ class TitleSection {
     this.tooLong = this.lines.some(line => line.length > 100);
   }
 
+  static tooLongMarker() {
+    if (!TitleSection.TOO_LONG_MARKER) {
+      const placeholder = 'title should not be longer than this line';
+      const leftLength = Math.floor((100 - 4 - placeholder.length) / 2);
+      const rightLength = 100 - 4 - placeholder.length - leftLength;
+      TitleSection.TOO_LONG_MARKER = `# |${'-'.repeat(leftLength)} ${placeholder} ${'-'.repeat(rightLength)}|`;
+    }
+    return TitleSection.TOO_LONG_MARKER;
+  }
+
   // Return value: [parsed_title, remaining_lines]
   static parse(lines, format) {
     const originalLines = lines;
+    let titleDetected = false;
     const titleLines = [];
     while (lines.length) {
       const [nextSection, nextLines] = CommentSection.parse(lines, format);
@@ -191,15 +207,17 @@ class TitleSection {
       let currentLines = nextSection.lines;
       if (currentLines[0] === '简介' || currentLines[0] === '字幕')
         break;
-      if (currentLines[0].startsWith('标题'))
-        currentLines = currentLines.slice(1);
-      if (currentLines.length != 2)
+      if (!titleDetected && !currentLines[0].startsWith('标题'))
         break;
+      if (currentLines[0].startsWith('标题')) {
+        titleDetected = true;
+        currentLines = currentLines.slice(1);
+      }
 
-      titleLines.push(...currentLines);
+      titleLines.push(...currentLines.filter(line => line !== TitleSection.tooLongMarker()));
       lines = nextLines;
     }
-    if (!titleLines.length)
+    if (!titleDetected || !titleLines.length)
       return [null, originalLines];
     return [new TitleSection(titleLines), lines];
   }
@@ -215,15 +233,59 @@ class TitleSection {
       ];
     }
 
-    const placeholder = 'title should not be longer than this line';
-    const leftLength = Math.floor((100 - 4 - placeholder.length) / 2);
-    const rightLength = 100 - 4 - placeholder.length - leftLength;
-    const markerLine = `# |${'-'.repeat(leftLength)} ${placeholder} ${'-'.repeat(rightLength)}|`;
     return [
       '# 标题 （标题翻译过长，请将其精简到 100 字符内）',
       ...this.lines.map(line => `# ${line}`),
-      markerLine
+      TitleSection.tooLongMarker()
     ];
+  }
+};
+
+class DescriptionSection {
+  constructor(sections) {
+    this.sections = sections || [];
+  }
+
+  // Return value: [parsed_section, remaining_lines]
+  static parse(lines, format) {
+    const originalLines = lines;
+    const sections = [];
+    let descriptionDetected = false;
+    while(lines.length) {
+      const [nextSection, nextLines] = CommentSection.parse(lines, format);
+      if (!nextSection)
+        break;
+      if (nextSection.lines[0] === '字幕')
+        break;
+      if (!descriptionDetected && nextSection.lines[0] !== '简介')
+        break;
+
+      lines = nextLines;
+      if (nextSection.lines[0] === '简介') {
+        descriptionDetected = true;
+        nextSection.lines = nextSection.lines.slice(1);
+      }
+      if (!nextSection.lines.length)
+        continue;
+      sections.push(nextSection);
+    }
+
+    if (!descriptionDetected || !sections.length)
+      return [null, originalLines];
+    return [new DescriptionSection(sections), lines];
+  }
+
+  toString() {
+    if (!this.sections || !this.sections.length)
+      return [];
+
+    const result = [];
+    result.push('# 简介');
+    this.sections.forEach(section => {
+      result.push('');
+      result.push(...section.toString());
+    });
+    return result;
   }
 };
 
@@ -254,7 +316,16 @@ function fuzzyParse(lines, url, format) {
   }
 
   function canConsumeTitleSection() {
-    return !contents.some(content => content instanceof TitleSection || content instanceof Subtitle);
+    return !contents.some(content =>
+        content instanceof TitleSection ||
+        content instanceof DescriptionSection ||
+        content instanceof Subtitle);
+  }
+
+  function canConsumeDescriptionSection() {
+    return !contents.some(content =>
+        content instanceof DescriptionSection ||
+        content instanceof Subtitle);
   }
 
   while (lines.length) {
@@ -290,6 +361,15 @@ function fuzzyParse(lines, url, format) {
       }
     }
 
+    if (canConsumeDescriptionSection()) {
+      let [description, next] = DescriptionSection.parse(lines, format);
+      if (description) {
+        contents.push(description);
+        lines = next;
+        continue;
+      }
+    }
+
     let [comments, next] = CommentSection.parse(lines, format);
     if (comments)
       contents.push(comments);
@@ -298,6 +378,8 @@ function fuzzyParse(lines, url, format) {
 
   if (!(contents[0] instanceof URL))
     contents.splice(0, 0, new URL(url));
+
+  // console.log(contents);
 
   return contents;
 }
