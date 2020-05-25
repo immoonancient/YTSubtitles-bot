@@ -4,10 +4,11 @@ const source = `https://raw.githubusercontent.com/${process.env.REPO_OWNER}/${pr
 const fetch = require('node-fetch');
 
 class Channel {
-  constructor(label, folder, nicknames) {
+  constructor(label, folder, nicknames, reviewers) {
     this.label = label;
     this.folder = folder;
     this.nicknames = nicknames || [];
+    this.reviewers = reviewers || [];
   }
 
   match(title)  {

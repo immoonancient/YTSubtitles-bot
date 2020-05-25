@@ -462,6 +462,17 @@ module.exports = app => {
       maintainer_can_modify: true,
     });
 
+    // Request reviews
+    const reviewers = channel.reviewers.filter(reviewer => reviewer !== author.login);
+    if (reviewers.length) {
+      await context.github.pulls.createReviewRequest({
+        owner: owner,
+        repo: repo,
+        pull_number: newPull.data.number,
+        reviewers: reviewers
+      });
+    }
+
     // Edit the original issue comment to collapse the subtitles
     const codequote = '```';
     const editedComment = await context.github.issues.updateComment({
