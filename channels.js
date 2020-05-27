@@ -27,7 +27,7 @@ module.exports = function() {
 
   async function refreshChannels() {
     const response = await fetch(source).then(r => r.json());
-    channels = response.map(c => new Channel(c.label, c.folder, c.nicknames));
+    channels = response.map(c => new Channel(c.label, c.folder, c.nicknames, c.reviewers));
     timestamp = new Date();
   }
 

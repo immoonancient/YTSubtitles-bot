@@ -465,6 +465,7 @@ module.exports = app => {
     // Request reviews
     const reviewers = channel.reviewers.filter(reviewer => reviewer !== author.login);
     if (reviewers.length) {
+      console.log(`Requesting review for #${newPull.data.number} from ${reviewers.join(' and ')}`);
       await context.github.pulls.createReviewRequest({
         owner: owner,
         repo: repo,
