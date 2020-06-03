@@ -497,6 +497,7 @@ module.exports = app => {
 
   Channels.addListChannelRoute(router, '/list-channels')
   Credits.addRoute(router, '/credits');
-  Formatter.addRoute(router, '/format');
+  Formatter.addRoutePlainText(router, '/format');
+  Formatter.addRouteStructured(router, '/format-structured');
   PublishChecker.addRoute(router, '/check-publish');
 }
