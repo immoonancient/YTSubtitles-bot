@@ -391,6 +391,8 @@ module.exports = app => {
     const issueNumber = context.payload.issue.number;
     const newBranch = `issue-${issueNumber}-${Math.floor(Math.random() * 100)}`;
 
+    // TODO: Deduplicate pull creation code with credits-generation.js
+
     // Get hash of master branch
     const masterBranch = await context.github.repos.getBranch({
       owner: owner,
@@ -497,6 +499,8 @@ module.exports = app => {
 
   Channels.addListChannelRoute(router, '/list-channels')
   Credits.addRoute(router, '/credits');
+  Credits.addRouteMarkdown(router, '/credits-markdown');
+  Credits.addRouteCreatePull(router, '/credits-create-pull');
   Formatter.addRoutePlainText(router, '/format');
   Formatter.addRouteStructured(router, '/format-structured');
   PublishChecker.addRoute(router, '/check-publish');

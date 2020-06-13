@@ -192,13 +192,22 @@ async function countReviewContributions(context, pulls, contributions) {
       .map(number => countReviewsInPull(number)));
 }
 
-async function getContributionList(channel, startDate, endDate) {
-  const mockContext = await createMockContext();
+async function getContributionList(mockContext, channel, startDate, endDate) {
+  console.log(`getContributionList(${channel.folder}, ${startDate}, ${endDate})`);
 
   const channelName = channel.label;
 
   const pulls = await listPulls(mockContext, channel, startDate, endDate);
+  if (!Object.keys(pulls).length) {
+    console.log(`Didn't find any pull for ${channel.folder}`);
+    return [];
+  }
+
   const issues = await matchIssues(mockContext, channel, pulls);
+  if (!Object.keys(issues).length) {
+    console.log(`Didn't find any issue for ${channel.folder}`);
+    return [];
+  }
 
   const contributions = {};
   await countTranslationContributions(issues, contributions);
@@ -212,12 +221,14 @@ async function getContributionList(channel, startDate, endDate) {
 }
 
 // Note: monthIndex is 0-based, i.e., January is 0, not 1
-async function createContributionTable(channelName, year, monthIndex) {
-  const channel = await Channels.findChannelFromTitle(`[${channelName}]`);
+async function createContributionTable(mockContext, channelName, year, monthIndex) {
+  console.log(`createContributionTable(${channelName}, ${year}, ${monthIndex})`);
+
+  const channel = await Channels.findChannelFromFolder(channelName);
   const startDate = new Date(year, monthIndex);
   const endDate = new Date(year, monthIndex + 1);
 
-  const contributions = await getContributionList(channel, startDate, endDate);
+  const contributions = await getContributionList(mockContext, channel, startDate, endDate);
 
   const result = [];
   result.push(`# ${channel.label} ${year} 年 ${monthIndex + 1} 月贡献统计表`);
@@ -228,22 +239,6 @@ async function createContributionTable(channelName, year, monthIndex) {
     result.push(contribution.prettyPrint());
   return result.join('\n');
 }
-
-/*
-const argv = require('yargs')
-  .option('channel', {})
-  .option('year', {})
-  .option('month', {})
-  .demandOption(['channel', 'year', 'month'])
-  .help()
-  .argv;
-
-createContributionTable(
-    argv.channel,
-    parseInt(argv.year),
-    parseInt(argv.month) - 1)
-  .then(result => process.stdout.write(result));
-  */
 
 function addRoute(router, path) {
   router.get(path, async (req, res) => {
@@ -258,11 +253,123 @@ function addRoute(router, path) {
     const endDate = new Date(req.query['end-date']);
     endDate.setDate(endDate.getDate() + 1);
 
-    const contributions = await getContributionList(channel, startDate, endDate);
+    const mockContext = await createMockContext();
+    const contributions = await getContributionList(mockContext, channel, startDate, endDate);
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(contributions);
   });
 }
 
-module.exports = {addRoute: addRoute};
+function addRouteMarkdown(router, path) {
+  router.get(path, async(req, res) => {
+    const query = req.query;
+    if (!query['channel'] || !query['year'] || !query['month']) {
+      res.sendStatus(400);
+      return;
+    }
+
+    const mockContext = await createMockContext();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(await createContributionTable(
+      mockContext,
+      query['channel'],
+      parseInt(query['year']),
+      parseInt(query['month'] - 1)));
+  });
+}
+
+function addRouteCreatePull(router, path) {
+  router.options(path, (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type');
+    res.sendStatus(200);
+  });
+
+  router.post(path, async(req, res) => {
+    if (!req.body.token || req.body.token !== process.env.HTTP_TOKEN)
+      return res.sendStatus(403);
+
+    if (!req.body.channels || !req.body.year || !req.body.month)
+      return res.sendStatus(400);
+
+    try {
+      const context = await createMockContext();
+      const channels = req.body.channels;
+      const year = parseInt(req.body.year);
+      const month = parseInt(req.body.month) - 1;
+      const owner = process.env.REPO_OWNER;
+      const repo = req.body.isTest ? process.env.TEST_REPO : process.env.REPO;
+      const newBranch = `credits-${req.body.year}${req.body.month}-${Math.floor(Math.random() * 100)}`;
+
+      // TODO: Deduplicate pull creation code with index.js
+
+      // Get hash of master branch
+      const masterBranch = await context.github.repos.getBranch({
+        owner: owner,
+        repo: repo,
+        branch: 'master'
+      });
+      const sha = masterBranch.data.commit.sha;
+
+      // Create a new tree with new files, on top of master
+      const newFiles = [];
+      async function createContributionFile(channel) {
+        const content = await createContributionTable(context, channel, year, month);
+        newFiles.push({
+          path: `rewards/${channel}/${req.body.year}${req.body.month}.md`,
+          mode: '100644',
+          type: 'blob',
+          content: content
+        });
+      }
+      await Promise.all(channels.map(createContributionFile));
+      const newTree = await context.github.git.createTree({
+        owner: owner,
+        repo: repo,
+        base_tree: sha,
+        tree: newFiles,
+      });
+
+      // Commit the new tree
+      const newCommit = await context.github.git.createCommit({
+        owner: owner,
+        repo: repo,
+        message: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        tree: newTree.data.sha,
+        parents: [sha],
+      });
+
+      // Create a new branch referring the commit
+      const newRef = await context.github.git.createRef({
+        owner: owner,
+        repo: repo,
+        ref: `refs/heads/${newBranch}`,
+        sha: newCommit.data.sha,
+      });
+
+      // Create a new pull request
+      const newPull = await context.github.pulls.create({
+        owner: owner,
+        repo: repo,
+        title: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        head: newBranch,
+        base: 'master',
+        body: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        maintainer_can_modify: true,
+      });
+
+      res.send(`Created https://github.com/${owner}/${repo}/pulls/${newPull.data.number}`);
+    } catch (e) {
+      console.log(e);
+      res.sendStatus(500);
+    }
+  });
+}
+
+module.exports = {
+  addRoute: addRoute,
+  addRouteMarkdown: addRouteMarkdown,
+  addRouteCreatePull: addRouteCreatePull
+};
