@@ -291,17 +291,23 @@ function addRouteCreatePull(router, path) {
     if (!req.body.token || req.body.token !== process.env.HTTP_TOKEN)
       return res.sendStatus(403);
 
-    if (!req.body.channels || !req.body.year || !req.body.month)
-      return res.sendStatus(400);
+    function getReqYearAndMonth(data) {
+      if (data.year && data.month)
+        return {year: parseInt(data.year), month: parseInt(data.month) - 1};
+      let date = new Date();
+      date.setDate(1);
+      date.setMonth(date.getMonth() - 1);
+      return {year: date.getFullYear(), month: date.getMonth()};
+    }
 
     try {
       const context = await createMockContext();
-      const channels = req.body.channels;
-      const year = parseInt(req.body.year);
-      const month = parseInt(req.body.month) - 1;
+      const channels = req.body.channels || (await Channels.getChannels()).map(c => c.folder);
+      const {year, month} = getReqYearAndMonth(req.body);
       const owner = process.env.REPO_OWNER;
       const repo = req.body.isTest ? process.env.TEST_REPO : process.env.REPO;
       const newBranch = `credits-${req.body.year}${req.body.month}-${Math.floor(Math.random() * 100)}`;
+      const yearMonthStr = `${year}${month.toString().padStart(2, '0')}`;
 
       // TODO: Deduplicate pull creation code with index.js
 
@@ -318,7 +324,7 @@ function addRouteCreatePull(router, path) {
       async function createContributionFile(channel) {
         const content = await createContributionTable(context, channel, year, month);
         newFiles.push({
-          path: `rewards/${channel}/${req.body.year}${req.body.month}.md`,
+          path: `rewards/${channel}/${yearMonthStr}.md`,
           mode: '100644',
           type: 'blob',
           content: content
@@ -338,7 +344,7 @@ function addRouteCreatePull(router, path) {
       const newCommit = await context.github.git.createCommit({
         owner: owner,
         repo: repo,
-        message: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        message: `添加 ${year} 年 ${month + 1} 月贡献表`,
         tree: newTree.data.sha,
         parents: [sha],
       });
@@ -355,10 +361,10 @@ function addRouteCreatePull(router, path) {
       const newPull = await context.github.pulls.create({
         owner: owner,
         repo: repo,
-        title: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        title: `添加 ${year} 年 ${month + 1} 月贡献表`,
         head: newBranch,
         base: 'master',
-        body: `添加 ${req.body.year} 年 ${req.body.month} 月贡献表`,
+        body: `添加 ${year} 年 ${month + 1} 月贡献表`,
         maintainer_can_modify: true,
       });
 
