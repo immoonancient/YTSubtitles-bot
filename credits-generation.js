@@ -324,7 +324,9 @@ function addRouteCreatePull(router, path) {
           content: content
         });
       }
-      await Promise.all(channels.map(createContributionFile));
+      for (let channel of channels)
+        await createContributionFile(channel);
+
       const newTree = await context.github.git.createTree({
         owner: owner,
         repo: repo,
