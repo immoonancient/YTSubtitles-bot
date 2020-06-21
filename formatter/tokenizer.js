@@ -92,7 +92,7 @@ const ControlKeywords = {
   Import: 'import',
   Shift: 'shift',
   Title: '标题',
-  Introduction: '简介',
+  Description: '简介',
   Subtitles: '字幕',
 };
 
@@ -248,5 +248,6 @@ module.exports = {
   types: TokenTypes,
   classes: TokenClasses,
   tokenize: tokenize,
+  controlTypes: ControlKeywords,
   TitleTooLongMarkString: TitleTooLongMarkString
 };

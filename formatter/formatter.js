@@ -1,11 +1,7 @@
 const Timeline = require('./timeline.js');
+const Timestamp = require('./timestamp.js');
 const Unicode = require('unicode-properties');
-
-// TODO: Should tokenize before parsing
-
-function isEmptyLine(line) {
-  return line === '' || line === '#';
-}
+const Tokenizer = require('./tokenizer.js');
 
 // Contents allowed within a Subtitles object:
 // - URL
@@ -13,6 +9,8 @@ function isEmptyLine(line) {
 // - DescriptionSection
 // - CommentSection
 // - Subtitle
+// - ImportInstruction
+// - ShiftInstruction
 
 class URL {
   constructor(url) {
@@ -23,14 +21,10 @@ class URL {
     return [`# ${this.url}`];
   }
 
-  static parse(line) {
-    line = line || '';
-    if (line.startsWith('#'))
-      line = line.substring(1);
-    line = line.trim();
-    if (line.startsWith('https://www.youtube.com/watch?v=') || line.startsWith('https://youtu.be/'))
-      return new URL(line);
-    return null;
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.URLToken)
+      return [null, tokens];
+    return [new URL(tokens[0].value), tokens.slice(1)];
   }
 };
 
@@ -46,43 +40,10 @@ class Subtitle {
       this.engLineStart = this.captions.length;
   }
 
-  // Return value: [parsed_timeline, remaining_lines]
-  static parseTimeline(lines, format) {
-    if (format === 'srt') {
-      if (!lines.length)
-        return [null, lines];
-      // Make the subtitle id line optional, as some submissions remove the line
-      if (lines[0].match(/^\d+$/))
-        lines = lines.slice(1);
-    }
-
-    if (!lines.length)
-      return [null, lines];
-    let timeline = Timeline.parse(lines[0], format);
-    if (timeline)
-      return [timeline, lines.slice(1)];
-    return [null, lines];
-  }
-
   // Return value: [parsed_subtitle, remaining_lines]
-  static parse(lines, format) {
-    let [timeline, next] = this.parseTimeline(lines, format);
-    if (!timeline)
-      return [null, lines];
-    lines = next;
-
-    let captions = [];
-    while (lines.length) {
-      if (isEmptyLine(lines[0]))
-        break;
-
-      let [nextTimeline, _] = this.parseTimeline(lines, format);
-      if (nextTimeline)
-        break;
-
-      captions.push(lines[0]);
-      lines = lines.slice(1);
-    }
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.TimelineToken)
+      return [null, tokens];
 
     function findFirstEnglishLine(lines) {
       if (lines.length === 0)
@@ -121,8 +82,13 @@ class Subtitle {
       return result;
     }
 
+    const timeline = tokens.shift().value;
+
+    let captions = [];
+    while (tokens.length && tokens[0].type == Tokenizer.types.TextLineToken)
+      captions.push(tokens.shift().value);
     let engLineStart = findFirstEnglishLine(captions);
-    return [new Subtitle(timeline, captions, engLineStart), lines];
+    return [new Subtitle(timeline, captions, engLineStart), tokens];
   }
 
   toString(format, id) {
@@ -145,32 +111,14 @@ class CommentSection {
   }
 
   // Return value: [parsed_comments, remaining_lines]
-  static parse(lines, format) {
+  static parse(tokens) {
     let comments = [];
-    while (lines.length && isEmptyLine(lines[0]))
-      lines = lines.slice(1);
-    while (lines.length) {
-      if (isEmptyLine(lines[0]))
-        break;
-      let [timeline, _] = Subtitle.parseTimeline(lines, format);
-      if (timeline)
-        break;
-
-      let line = lines[0];
-      if (line.startsWith('#'))
-        line = line.substring(1).trim();
-
-      if (comments.length) {
-        if (line.startsWith('标题') || line.startsWith('简介') || line.startsWith('字幕'))
-          break;
-      }
-
-      comments.push(line);
-      lines = lines.slice(1);
-    }
+    let i = 0;
+    for (; i < tokens.length && tokens[i].type === Tokenizer.types.TextLineToken; ++i)
+      comments.push(tokens[i].value);
     if (!comments.length)
-      return [null, lines];
-    return [new CommentSection(comments), lines];
+      return [null, tokens];
+    return [new CommentSection(comments), tokens.slice(i)];
   }
 
   toString() {
@@ -184,42 +132,30 @@ class TitleSection {
     this.tooLong = this.lines.some(line => line.length > 100);
   }
 
-  static tooLongMarker() {
-    if (!TitleSection.TOO_LONG_MARKER) {
-      const placeholder = 'title should not be longer than this line';
-      const leftLength = Math.floor((100 - 4 - placeholder.length) / 2);
-      const rightLength = 100 - 4 - placeholder.length - leftLength;
-      TitleSection.TOO_LONG_MARKER = `# |${'-'.repeat(leftLength)} ${placeholder} ${'-'.repeat(rightLength)}|`;
-    }
-    return TitleSection.TOO_LONG_MARKER;
-  }
-
   // Return value: [parsed_title, remaining_lines]
-  static parse(lines, format) {
-    const originalLines = lines;
-    let titleDetected = false;
-    const titleLines = [];
-    while (lines.length) {
-      const [nextSection, nextLines] = CommentSection.parse(lines, format);
-      if (!nextSection)
-        break;
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
+        tokens[0].controlType !== Tokenizer.controlTypes.Title)
+      return [null, tokens];
 
-      let currentLines = nextSection.lines;
-      if (currentLines[0] === '简介' || currentLines[0] === '字幕')
-        break;
-      if (!titleDetected && !currentLines[0].startsWith('标题'))
-        break;
-      if (currentLines[0].startsWith('标题')) {
-        titleDetected = true;
-        currentLines = currentLines.slice(1);
+    const lines = [];
+
+    let i = 1;
+    for (; i < tokens.length && lines.length < 2; ++i) {
+      if (tokens[i].type === Tokenizer.types.EmptyLineToken)
+        continue;
+      if (tokens[i].type === Tokenizer.types.TextLineToken) {
+        lines.push(tokens[i].value);
+        continue;
       }
-
-      titleLines.push(...currentLines.filter(line => line !== TitleSection.tooLongMarker()));
-      lines = nextLines;
+      break;
     }
-    if (!titleDetected || !titleLines.length)
-      return [null, originalLines];
-    return [new TitleSection(titleLines), lines];
+    if (i < tokens.length && tokens[i].type === Tokenizer.types.TitleTooLongMarkToken)
+      ++i;
+
+    if (!lines.length)
+      return [null, tokens];
+    return [new TitleSection(lines), tokens.slice(i)];
   }
 
   toString() {
@@ -236,7 +172,7 @@ class TitleSection {
     return [
       '# 标题 （标题翻译过长，请将其精简到 100 字符内）',
       ...this.lines.map(line => `# ${line}`),
-      TitleSection.tooLongMarker()
+      `# ${Tokenizer.TitleTooLongMarkString}`
     ];
   }
 };
@@ -247,32 +183,36 @@ class DescriptionSection {
   }
 
   // Return value: [parsed_section, remaining_lines]
-  static parse(lines, format) {
-    const originalLines = lines;
-    const sections = [];
-    let descriptionDetected = false;
-    while(lines.length) {
-      const [nextSection, nextLines] = CommentSection.parse(lines, format);
-      if (!nextSection)
-        break;
-      if (nextSection.lines[0] === '字幕')
-        break;
-      if (!descriptionDetected && nextSection.lines[0] !== '简介')
-        break;
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
+        tokens[0].controlType !== Tokenizer.controlTypes.Description)
+      return [null, tokens];
 
-      lines = nextLines;
-      if (nextSection.lines[0] === '简介') {
-        descriptionDetected = true;
-        nextSection.lines = nextSection.lines.slice(1);
-      }
-      if (!nextSection.lines.length)
+    const lines = [];
+
+    let i = 1;
+    let needsEmptyLine = false;
+    for (; i < tokens.length; ++i) {
+      if (tokens[i].type === Tokenizer.types.TextLineToken) {
+        if (needsEmptyLine) {
+          lines.push('');
+          needsEmptyLine = false;
+        }
+        lines.push(tokens[i].value);
         continue;
-      sections.push(nextSection);
+      }
+
+      if (tokens[i].type === Tokenizer.types.EmptyLineToken) {
+        if (lines.length)
+          needsEmptyLine = true;
+        continue;
+      }
+      break;
     }
 
-    if (!descriptionDetected || !sections.length)
-      return [null, originalLines];
-    return [new DescriptionSection(sections), lines];
+    if (!lines.length)
+      return [null, tokens];
+    return [new DescriptionSection(lines), tokens.slice(i)];
   }
 
   toString() {
@@ -281,13 +221,75 @@ class DescriptionSection {
 
     const result = [];
     result.push('# 简介');
+    result.push('');
     this.sections.forEach(section => {
-      result.push('');
-      result.push(...section.toString());
+      result.push(section.length ? `# ${section}` : '');
     });
     return result;
   }
 };
+
+class ImportInstruction {
+  constructor(path) {
+    this.path = path;
+  }
+
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
+        tokens[0].controlType !== Tokenizer.controlTypes.Import)
+      return [null, tokens];
+    const params = tokens[0].controlParameters;
+    if (!params.length)
+      return [null, tokens];
+    return [new ImportInstruction(params[0]), tokens.slice(1)];
+  }
+
+  toString() {
+    return [`# import ${this.path}`];
+  }
+};
+
+class ShiftInstruction {
+  constructor(direction, delta) {
+    this.direction = direction;
+    this.delta = delta;
+  }
+
+  static parse(tokens, format) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
+        tokens[0].controlType !== Tokenizer.controlTypes.Import)
+      return [null, tokens];
+    const params = tokens[0].controlParameters;
+    if (params.length < 2)
+      return [null, tokens];
+    const direction = params[0];
+    if (direction !== 'forward' && direction !== 'backward')
+      return [null, tokens];
+    const [delta, _] = Timestamp.parse(params[1], format);
+    if (!delta)
+      return [null, tokens];
+    return [new ShiftInstruction(direction, delta), tokens.slice(1)];
+  }
+
+  toString(format) {
+    return [`# shift ${this.direction} ${this.delta.toString(format)}`];
+  }
+};
+
+class SubtitleStartMark {
+  constructor() {}
+
+  static parse(tokens) {
+    if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
+        tokens[0].controlType !== Tokenizer.controlTypes.Subtitles)
+      return [null, tokens];
+    return [new SubtitleStartMark(), tokens.slice(1)];
+  }
+
+  toString() {
+    return [`# 字幕`];
+  }
+}
 
 class Subtitles {
   constructor(contents) {
@@ -310,74 +312,50 @@ class Subtitles {
 
 function fuzzyParse(lines, url, format) {
   const contents = [];
+  let tokens = Tokenizer.tokenize(lines, format);
 
-  function canConsumeURL() {
-    return !contents.length;
+  function consumeEmptyLines() {
+    let result = false;
+    while (tokens.length && tokens[0].type == Tokenizer.types.EmptyLineToken) {
+      tokens.shift();
+      result = true;
+    }
+    return result;
   }
 
-  function canConsumeTitleSection() {
-    return !contents.some(content =>
-        content instanceof TitleSection ||
-        content instanceof DescriptionSection ||
-        content instanceof Subtitle);
+  function tryConsume(contentType, format) {
+    consumeEmptyLines();
+    if (!tokens.length)
+      return false;
+    let [content, next] = contentType.parse(tokens, format);
+    if (!content)
+      return false;
+    contents.push(content);
+    tokens = next;
+    return true;
   }
 
-  function canConsumeDescriptionSection() {
-    return !contents.some(content =>
-        content instanceof DescriptionSection ||
-        content instanceof Subtitle);
-  }
+  if (!tryConsume(URL))
+    contents.push(new URL(url));
 
-  while (lines.length) {
-    if (isEmptyLine(lines[0])) {
-      lines = lines.slice(1);
+  tryConsume(TitleSection);
+  tryConsume(DescriptionSection);
+  tryConsume(ImportInstruction);
+  tryConsume(SubtitleStartMark);
+
+  while (tokens.length) {
+    if (tryConsume(Subtitle))
       continue;
-    }
+    if (tryConsume(ImportInstruction))
+      continue;
+    if (tryConsume(ShiftInstruction, format))
+      continue;
+    if (tryConsume(CommentSection))
+      continue;
 
-    if (canConsumeURL()) {
-      let url = URL.parse(lines[0]);
-      if (url) {
-        contents.push(url);
-        lines = lines.slice(1);
-        continue;
-      }
-    }
-
-    {
-      let [subtitle, next] = Subtitle.parse(lines, format);
-      if (subtitle) {
-        contents.push(subtitle);
-        lines = next;
-        continue;
-      }
-    }
-
-    if (canConsumeTitleSection()) {
-      let [title, next] = TitleSection.parse(lines, format);
-      if (title) {
-        contents.push(title);
-        lines = next;
-        continue;
-      }
-    }
-
-    if (canConsumeDescriptionSection()) {
-      let [description, next] = DescriptionSection.parse(lines, format);
-      if (description) {
-        contents.push(description);
-        lines = next;
-        continue;
-      }
-    }
-
-    let [comments, next] = CommentSection.parse(lines, format);
-    if (comments)
-      contents.push(comments);
-    lines = next;
+    // Reach here for lines like '# 字幕'
+    tokens.shift();
   }
-
-  if (!(contents[0] instanceof URL))
-    contents.splice(0, 0, new URL(url));
 
   // console.log(contents);
 
@@ -388,6 +366,10 @@ function parsePlainText(lines, url) {
   const contents = [];
   contents.push(url);
   contents.push('');
+
+  function isEmptyLine(line) {
+    return line === '' || line === '#';
+  }
 
   let awaitingURL = true;
   for (; lines.length; lines = lines.slice(1)) {

@@ -87,3 +87,84 @@ test('tokenize() #541', () => {
   const output = Tokenizer.tokenize(input, 'srt');
   expect(output).toEqual(expected);
 });
+
+test('tokenize() #530 with broken title lines', () => {
+  const url = 'https://youtu.be/K6TfhFFsu8U';
+
+  const input = `
+${url}
+
+标题
+
+贵阳五花肉土豪吃法！一锅250斤只出30斤，卖价很贵，拌面吃很香
+
+Luxurious way to eat pork belly in Guiyang! Only 15kg of final products are made from 125kg of pork belly. Expensive, but perfect with noodles
+
+简介
+探寻世界最具烟火气息的美味，我是雪鱼。在贵州贵阳，有一种特别的美食叫做脆哨，是一种熬猪油时剩下的“油渣”，不管是用五花肉还是大肥肉，或是精瘦肉，经过巧手烹制，却变成了一道别致的黔中美味。这几天吃糯米饭、吃粉、吃面时候，里面都能找到或多或少的脆哨。由于熬一锅脆哨费事费力，通常想要2个师傅共同劳作2个小时，这样做出来的脆哨不仅味美，也更有传统意义。经营了30年的老店，熟客非常多，经常一天要做6大锅才能满足需求。
+I’m Xue Yu, in search for the best street food in the world
+There is a unique local specialty in Guiyang, Guizhou, called ‘Cui Shao’, which are the residues from making lard. No matter whether they are made from pork belly, pork fat or lean pork meat, with fine skills and expertise, Cui Shao has become a special delicacy in Central Guizhou. I can always find Cui Shao more or less in my dishes when I eat sticky rice, noodles or rice noodles in Guiyang recently. It requires 2 masters to collaboratively cook for 2 hours for every single pot of Cui Shao. Such effort not only guarantees the best flavour, but also is a homage to the tradition. Having been running for 30 years, the shop I visited today has so many return customers that sometimes it needs to make 6 pots of Cui Shao to meet the foodies’ demands.
+`.split('\n');
+
+  const expected = [
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+    new Tokenizer.classes.URLToken(
+      ["https://youtu.be/K6TfhFFsu8U"],
+      "https://youtu.be/K6TfhFFsu8U"
+    ),
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+    new Tokenizer.classes.ControlToken(
+      ["标题"],
+      ["标题"]
+    ),
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["贵阳五花肉土豪吃法！一锅250斤只出30斤，卖价很贵，拌面吃很香"],
+      "贵阳五花肉土豪吃法！一锅250斤只出30斤，卖价很贵，拌面吃很香"
+    ),
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["Luxurious way to eat pork belly in Guiyang! Only 15kg of final products are made from 125kg of pork belly. Expensive, but perfect with noodles"],
+      "Luxurious way to eat pork belly in Guiyang! Only 15kg of final products are made from 125kg of pork belly. Expensive, but perfect with noodles"
+    ),
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+    new Tokenizer.classes.ControlToken(
+      ["简介"],
+      ["简介"]
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["探寻世界最具烟火气息的美味，我是雪鱼。在贵州贵阳，有一种特别的美食叫做脆哨，是一种熬猪油时剩下的“油渣”，不管是用五花肉还是大肥肉，或是精瘦肉，经过巧手烹制，却变成了一道别致的黔中美味。这几天吃糯米饭、吃粉、吃面时候，里面都能找到或多或少的脆哨。由于熬一锅脆哨费事费力，通常想要2个师傅共同劳作2个小时，这样做出来的脆哨不仅味美，也更有传统意义。经营了30年的老店，熟客非常多，经常一天要做6大锅才能满足需求。"],
+      "探寻世界最具烟火气息的美味，我是雪鱼。在贵州贵阳，有一种特别的美食叫做脆哨，是一种熬猪油时剩下的“油渣”，不管是用五花肉还是大肥肉，或是精瘦肉，经过巧手烹制，却变成了一道别致的黔中美味。这几天吃糯米饭、吃粉、吃面时候，里面都能找到或多或少的脆哨。由于熬一锅脆哨费事费力，通常想要2个师傅共同劳作2个小时，这样做出来的脆哨不仅味美，也更有传统意义。经营了30年的老店，熟客非常多，经常一天要做6大锅才能满足需求。"
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["I’m Xue Yu, in search for the best street food in the world"],
+      "I’m Xue Yu, in search for the best street food in the world"
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["There is a unique local specialty in Guiyang, Guizhou, called ‘Cui Shao’, which are the residues from making lard. No matter whether they are made from pork belly, pork fat or lean pork meat, with fine skills and expertise, Cui Shao has become a special delicacy in Central Guizhou. I can always find Cui Shao more or less in my dishes when I eat sticky rice, noodles or rice noodles in Guiyang recently. It requires 2 masters to collaboratively cook for 2 hours for every single pot of Cui Shao. Such effort not only guarantees the best flavour, but also is a homage to the tradition. Having been running for 30 years, the shop I visited today has so many return customers that sometimes it needs to make 6 pots of Cui Shao to meet the foodies’ demands."],
+      "There is a unique local specialty in Guiyang, Guizhou, called ‘Cui Shao’, which are the residues from making lard. No matter whether they are made from pork belly, pork fat or lean pork meat, with fine skills and expertise, Cui Shao has become a special delicacy in Central Guizhou. I can always find Cui Shao more or less in my dishes when I eat sticky rice, noodles or rice noodles in Guiyang recently. It requires 2 masters to collaboratively cook for 2 hours for every single pot of Cui Shao. Such effort not only guarantees the best flavour, but also is a homage to the tradition. Having been running for 30 years, the shop I visited today has so many return customers that sometimes it needs to make 6 pots of Cui Shao to meet the foodies’ demands."
+    ),
+    new Tokenizer.classes.EmptyLineToken(
+      [""],
+      ""
+    ),
+  ];
+
+  const output = Tokenizer.tokenize(input);
+  expect(output).toEqual(expected);
+});
