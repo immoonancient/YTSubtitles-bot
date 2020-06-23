@@ -476,3 +476,109 @@ test('TitleSection.toString() exceeding 100 characters', () => {
 
   expect(title.toString()).toEqual(expected);
 });
+
+test('formatSubtitles() 20200613-jiang-xiang-xian-cai-si.srt', () => {
+  const url = 'https://youtu.be/32Gf4DAnpJg';
+  const input =
+`# ${url}
+
+# 标题 （标题翻译过长，请将其精简到 100 字符内）
+# 【國宴大師•醬香鹹菜絲】比肉還香，在家就能做的小菜，夾火燒、夾饅頭，喝粥、拌麵條，都是絕配！|老飯骨
+# State Banquet Master Chef - Soy Sauce Salted Turnip Julienne. Easy and Yummy Side Dish!
+# |--------------------------- title should not be longer than this line ----------------------------|
+
+# 简介
+
+# 小友們好，今天我們的大師姐要給大家做一道家常小菜——醬香鹹菜絲，據說比肉還香呢！
+# 這醬香鹹菜絲的關鍵還是要先把鹹菜絲沖水，洗盡所有鹽味，再把所有水擠乾淨嘍。正所謂有味使其出，無味使其入，烹飪的原理真是妙嘞！
+# 另外視頻最後大爺為大家解答的問題：軟炸糊到底怎麼調合適？
+# 出處來自軟炸魚條這期視頻，小友們可以去複習一下！⬇️
+# https://www.youtube.com/watch?v=Rev4LJsvpfo
+
+# Hello friends, today our Da Shi Jie (senior female apprentice) shares a home-made side dish “ Soy Sauce Salted Turnip Julienne”, even yummier than meat! The most critical step of this dish is to wash the salted turnip julienne thoroughly -- getting rid of the saltiness and then squeezing water off it, so called “clear food’s original flavor if it has; add new flavor if it doesn’t”. The principle of cuisine is really wonderful!
+# At the end of this video Da Ye answers a question: what is the best way to make the batter for-fried stuff? This question comes from a previous video “golden and crispy soft fried fish fingers”. You could review it via this link: https://www.youtube.com/watch?v=Rev4LJsvpfo.
+
+# import intro
+
+# 字幕
+
+1
+00:00:00,000 --> 00:00:02,160
+# 早上起来熬一锅棒子碴粥
+After getting up in the morning, boil a pot of corn congee
+
+2
+00:00:02,160 --> 00:00:06,520
+# 把咸菜往火烧里一夹 这就是生活
+And put some salted vegetables into a Huo Shao -- this is the life
+
+3
+00:00:06,520 --> 00:00:08,880
+# 特别家常的酱香咸菜丝
+Home-made Soy Sauce Salted Turnip Julienne
+
+# shift forward 00:06:06,500
+
+132
+00:00:00,000 --> 00:00:02,400
+# 上回您做了一个软炸鱼条
+Last time you soft fried some fish pastes
+
+133
+00:00:02,680 --> 00:00:05,640
+# 他想问这个小苏打可不可以不加
+People want to ask whether it’s possible not to add baking soda`;
+
+  const expected = [
+    "# https://youtu.be/32Gf4DAnpJg",
+    "",
+    "# 标题",
+    "# 【國宴大師•醬香鹹菜絲】比肉還香，在家就能做的小菜，夾火燒、夾饅頭，喝粥、拌麵條，都是絕配！|老飯骨",
+    "# State Banquet Master Chef - Soy Sauce Salted Turnip Julienne. Easy and Yummy Side Dish!",
+    "",
+    "# 简介",
+    "",
+    "# 小友們好，今天我們的大師姐要給大家做一道家常小菜——醬香鹹菜絲，據說比肉還香呢！",
+    "# 這醬香鹹菜絲的關鍵還是要先把鹹菜絲沖水，洗盡所有鹽味，再把所有水擠乾淨嘍。正所謂有味使其出，無味使其入，烹飪的原理真是妙嘞！",
+    "# 另外視頻最後大爺為大家解答的問題：軟炸糊到底怎麼調合適？",
+    "# 出處來自軟炸魚條這期視頻，小友們可以去複習一下！⬇️",
+    "# https://www.youtube.com/watch?v=Rev4LJsvpfo",
+    "",
+    "# Hello friends, today our Da Shi Jie (senior female apprentice) shares a home-made side dish “ Soy Sauce Salted Turnip Julienne”, even yummier than meat! The most critical step of this dish is to wash the salted turnip julienne thoroughly -- getting rid of the saltiness and then squeezing water off it, so called “clear food’s original flavor if it has; add new flavor if it doesn’t”. The principle of cuisine is really wonderful!",
+    "# At the end of this video Da Ye answers a question: what is the best way to make the batter for-fried stuff? This question comes from a previous video “golden and crispy soft fried fish fingers”. You could review it via this link: https://www.youtube.com/watch?v=Rev4LJsvpfo.",
+    "",
+    "# import intro",
+    "",
+    "# 字幕",
+    "",
+    "1",
+    "00:00:00,000 --> 00:00:02,160",
+    "# 早上起来熬一锅棒子碴粥",
+    "After getting up in the morning, boil a pot of corn congee",
+    "",
+    "2",
+    "00:00:02,160 --> 00:00:06,520",
+    "# 把咸菜往火烧里一夹 这就是生活",
+    "And put some salted vegetables into a Huo Shao -- this is the life",
+    "",
+    "3",
+    "00:00:06,520 --> 00:00:08,880",
+    "# 特别家常的酱香咸菜丝",
+    "Home-made Soy Sauce Salted Turnip Julienne",
+    "",
+    "# shift forward 00:06:06,500",
+    "",
+    "4",
+    "00:00:00,000 --> 00:00:02,400",
+    "# 上回您做了一个软炸鱼条",
+    "Last time you soft fried some fish pastes",
+    "",
+    "5",
+    "00:00:02,680 --> 00:00:05,640",
+    "# 他想问这个小苏打可不可以不加",
+    "People want to ask whether it’s possible not to add baking soda",
+  ];
+
+  const output = Formatter.format(input, url);
+  expect(output).toEqual(expected);
+});

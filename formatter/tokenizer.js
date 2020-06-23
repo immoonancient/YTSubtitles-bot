@@ -25,6 +25,10 @@ class Token {
   get type() {
     throw 'Token.type called on abstract class';
   }
+
+  get linesWithoutCommentMarks() {
+    return this.lines.map(trimCommentMark);
+  }
 };
 
 class EmptyLineToken extends Token {

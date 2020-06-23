@@ -193,7 +193,8 @@ class DescriptionSection {
     let i = 1;
     let needsEmptyLine = false;
     for (; i < tokens.length; ++i) {
-      if (tokens[i].type === Tokenizer.types.TextLineToken) {
+      if (tokens[i].type === Tokenizer.types.TextLineToken ||
+          tokens[i].type === Tokenizer.types.URLToken) {
         if (needsEmptyLine) {
           lines.push('');
           needsEmptyLine = false;
@@ -257,7 +258,7 @@ class ShiftInstruction {
 
   static parse(tokens, format) {
     if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
-        tokens[0].controlType !== Tokenizer.controlTypes.Import)
+        tokens[0].controlType !== Tokenizer.controlTypes.Shift)
       return [null, tokens];
     const params = tokens[0].controlParameters;
     if (params.length < 2)
@@ -339,10 +340,15 @@ function fuzzyParse(lines, url, format) {
     contents.push(new URL(url));
 
   tryConsume(TitleSection);
+
+  // TODO: We should introduce section types, where each section consists of smaller structures
+  
+  // TODO: ImportInstruction should be part of DescriptionSection
   tryConsume(DescriptionSection);
   tryConsume(ImportInstruction);
-  tryConsume(SubtitleStartMark);
 
+  // TODO: SubtitleStartMark should be part of SubtitleSection or something similar
+  tryConsume(SubtitleStartMark);
   while (tokens.length) {
     if (tryConsume(Subtitle))
       continue;
@@ -353,11 +359,12 @@ function fuzzyParse(lines, url, format) {
     if (tryConsume(CommentSection))
       continue;
 
-    // Reach here for lines like '# 字幕'
+    if (!tokens.length)
+      break;
+
+    // Shouldn't reach here. Do this anyway to prevent dead loop
     tokens.shift();
   }
-
-  // console.log(contents);
 
   return contents;
 }
