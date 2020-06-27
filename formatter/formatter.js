@@ -426,6 +426,47 @@ function testFormat(passage) {
   return undefined;
 }
 
+function checkFormat(file, lines, format) {
+  // TODO: Add annotations. Need to retain line numbers after parsing
+
+  if (format !== 'sbv' && format !== 'srt') {
+    return {
+      conclusion: 'neutral',
+      summary: 'Not sbv or srt file',
+      text: `${file.filename} is not a sbv or srt subtitle file. It is recommended to upload timed subtitle files in sbv or srt format.`,
+      annotations: []
+    };
+  }
+
+  const contents = fuzzyParse(lines, '', format);
+  const messages = [];
+
+  if (contents.some(content => content instanceof TitleSection && content.tooLong)) {
+    messages.push('Title is too long. Please shrink the title to within 100 characters.');
+  }
+
+  if (!contents.some(content => content instanceof Subtitle)) {
+    messages.push(`Did not detect subtitles in ${format} format. Please revise or rename file.`);
+  } else {
+    contents.filter(content => content instanceof Subtitle && !content.timeline.isValid()).forEach(subtitle => {
+      messages.push(`Invalid timeline: ${subtitle.timeline.toString(format)}`);
+    });
+  }
+
+  // TODO: Check if consecutive timelines are inorder. Need to handle # import and # shift though
+
+  const conclusion = messages.length ? 'failure' : 'success';
+  const summary = messages.length ? 'Found the following format errors' : 'Format checking passed';
+  const text = messages.length ? messages.join('\n\n') : undefined;
+
+  return {
+    conclusion: conclusion,
+    summary: summary,
+    text: text,
+    annotations: [],
+  };
+}
+
 function addRoutePlainText(router, path) {
   router.options(path, (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -478,6 +519,7 @@ function addRouteStructured(router, path) {
 
 module.exports = {
   format: formatSubtitles,
+  checkFormat: checkFormat,
   testFormat: testFormat,
   addRoutePlainText: addRoutePlainText,
   addRouteStructured: addRouteStructured,

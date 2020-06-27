@@ -46,6 +46,10 @@ class Timeline {
       this.end.toString(format)
     ].join('');
   }
+
+  isValid() {
+    return this.start.valueOf() < this.end.valueOf();
+  }
 };
 
 module.exports = Timeline;

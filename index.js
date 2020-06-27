@@ -10,6 +10,8 @@ const Credits = require('./credits-generation.js');
 
 const PublishChecker = require('./publish-checker.js');
 
+const Checks = require('./checks.js');
+
 const statusLabels = [
   '待翻译',
   '待审阅',
@@ -490,6 +492,10 @@ module.exports = app => {
       body: `@${author.login}, I've formatted and uploaded your subtitles as #${newPull.data.number}.`
     }));
   });
+
+  app.on('check_suite.requested', async context => Checks.runCheckSuite(context));
+  app.on('check_suite.rerequested', async context => Checks.runCheckSuite(context));
+  app.on('check_run.rerequested', async context => Checks.runCheckSuite(context));
 
   // ====== HTTP routes ======
 

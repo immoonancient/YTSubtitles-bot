@@ -34,6 +34,14 @@ class Timestamp {
       return `${this.hour}:${this.minute}:${this.second},${this.millisecond}`;
     throw 'Invalid format';
   }
+
+  valueOf() {
+    let result = parseInt(this.hour);
+    result = result * 60 + parseInt(this.minute);
+    result = result * 60 + parseInt(this.second);
+    result = result * 1000 + parseInt(this.millisecond);
+    return result;
+  }
 };
 
 module.exports = Timestamp;
