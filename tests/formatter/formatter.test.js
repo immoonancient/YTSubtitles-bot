@@ -582,3 +582,85 @@ People want to ask whether it’s possible not to add baking soda`;
   const output = Formatter.format(input, url);
   expect(output).toEqual(expected);
 });
+
+test.only('checkFormat() title length and timeline validity', () => {
+  lines = 
+`# https://youtu.be/n9ncgbVmKN4
+
+# 标题（翻译在100字以内）：
+
+# 【国宴大师•黑醋带鱼卷】香酥无骨、酸甜可口，咬下去汁水四溢的黑醋带鱼卷要怎么做？老饭骨重聚欢乐多！
+# lorum ipsum dolor sit amet lorum ipsum dolor sit ametlorum ipsum dolor sit ametlorum ipsum dolor sit ametlorum ipsum dolor sit amet
+
+# 简介：
+
+# 小友们好，最近是不是很久没看到我们老饭骨哥仨一起出现了？大家想我们吗？
+# 今天是由三叔的徒弟小东北给大家带来一道中西融合菜——黑醋带鱼卷。
+# 我们用的是意大利黑醋，家里没有黑醋的小友们用自己本地的醋就可以了。
+# 带鱼呢，它本身也是一味中药材，具有补虚，解毒，止血之功效。
+# 吃带鱼对我们的身体大有好处，但是带鱼就怕处理不好腥味重。
+# 带鱼要先进行腌制去除腥味，然后放进油锅里炸至金黄脆嫩。
+# 最后还要淋上熬制许久的黑醋，酸甜可口！
+# 这道菜得到了我们的一致好评，不仅味道好，在成菜形式上也接轨国际，
+# 真正做到了融会贯通。看这摆盘，多美！
+# 各位小友们在观看视频的时候也要活学活用，一起把这些好的技法传承下去！
+
+# import intro
+
+# 字幕：
+
+1
+00:00:00,120 --> 00:00:02,200
+# 今天用带鱼做凉菜
+
+2
+00:00:02,200 --> 00:00:05,120
+# 搅拌一下 巧克力色
+
+3
+00:00:05,120 --> 00:00:06,440
+# 黑醋带鱼卷
+
+4
+00:00:06,440 --> 00:00:07,800
+# 绝对好吃
+
+5
+00:00:07,800 --> 00:00:01,320
+# 小东北 来自于东北 东北人`
+    .split('\n');
+
+  const file = { filename: 'subtitles/test.srt' };
+
+  const expectedConclusion = 'failure';
+  const expectedSummary = 'Found the following format errors';
+  const expectedText = [
+    'Title is too long. Please shrink the title to within 100 characters.',
+    '',
+    'File contains invalid timelines',
+  ].join('\n');
+  const expectedAnnotations = [
+    {
+      "annotation_level": "failure",
+      "end_line": 6,
+      "message": "Title translation is too long. Please shrink to within 100 characters.",
+      "start_line": 6,
+    },
+    {
+      "annotation_level": "failure",
+      "end_line": 42,
+      "message": "Invalid timeline. Start time must be less than end time.",
+      "start_line": 42,
+    },
+  ];
+
+  const expected = {
+    conclusion: expectedConclusion,
+    summary: expectedSummary,
+    text: expectedText,
+    annotations: expectedAnnotations,
+  };
+
+  const output = Formatter.checkFormat(file, lines, 'srt');
+  expect(output).toEqual(expected);
+});

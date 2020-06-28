@@ -437,8 +437,6 @@ function testFormat(passage) {
 }
 
 function checkFormat(file, lines, format) {
-  // TODO: Add annotations. Need to retain line numbers after parsing
-
   if (format !== 'sbv' && format !== 'srt') {
     return {
       conclusion: 'neutral',
@@ -448,19 +446,47 @@ function checkFormat(file, lines, format) {
     };
   }
 
-  const contents = fuzzyParse(lines, '', format);
   const messages = [];
+  const annotations = [];
 
-  if (contents.some(content => content instanceof TitleSection && content.tooLong)) {
-    messages.push('Title is too long. Please shrink the title to within 100 characters.');
+  const contents = fuzzyParse(lines, '', format);
+
+  {
+    let hasTooLong = false;
+    contents.filter(content => content instanceof TitleSection && content.tooLong).forEach(content => {
+      hasTooLong = true;
+      for (let token of content.tokens) {
+        if (token.type == Tokenizer.types.TextLineToken && token.value.length > 100) {
+          annotations.push({
+            start_line: token.startLineNumber,
+            end_line: token.startLineNumber,
+            annotation_level: 'failure',
+            message: 'Title translation is too long. Please shrink to within 100 characters.',
+          })
+        }
+      }
+    });
+    if (hasTooLong)
+      messages.push('Title is too long. Please shrink the title to within 100 characters.');
   }
 
   if (!contents.some(content => content instanceof Subtitle)) {
     messages.push(`Did not detect subtitles in ${format} format. Please revise or rename file.`);
   } else {
+    let hasInvalidTimeline = false;
     contents.filter(content => content instanceof Subtitle && !content.timeline.isValid()).forEach(subtitle => {
-      messages.push(`Invalid timeline: ${subtitle.timeline.toString(format)}`);
+      hasInvalidTimeline = true;
+      const timelineToken = subtitle.tokens[0];
+      const lineNumber = timelineToken.startLineNumber + timelineToken.lines.length - 1;
+      annotations.push({
+        start_line: lineNumber,
+        end_line: lineNumber,
+        annotation_level: 'failure',
+        message: `Invalid timeline. Start time must be less than end time.`,
+      });
     });
+    if (hasInvalidTimeline)
+      messages.push('File contains invalid timelines');
   }
 
   // TODO: Check if consecutive timelines are inorder. Need to handle # import and # shift though
@@ -473,7 +499,7 @@ function checkFormat(file, lines, format) {
     conclusion: conclusion,
     summary: summary,
     text: text,
-    annotations: [],
+    annotations: annotations,
   };
 }
 
