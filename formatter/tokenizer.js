@@ -20,6 +20,7 @@ class Token {
   constructor(lines, value) {
     this.lines = lines;
     this.value = value;
+    this.startLineNumber = -1;
   }
 
   get type() {
@@ -128,6 +129,14 @@ class BadToken extends Token {
   }
 }
 
+function addLineNumbersToTokens(tokens) {
+  for (let i = 0; i < tokens.length; ++i) {
+    tokens[i].startLineNumber =
+      i ? tokens[i - 1].startLineNumber + tokens[i - 1].lines.length
+        : 1;
+  }
+}
+
 class Tokenizer {
   constructor(lines, format) {
     this.lines = lines;
@@ -157,6 +166,7 @@ class Tokenizer {
 
       this._createTokenWithFirstLine(BadToken);
     }
+    addLineNumbersToTokens(this.result);
     return this.result;
   }
 
@@ -258,5 +268,6 @@ module.exports = {
   classes: TokenClasses,
   tokenize: tokenize,
   controlTypes: ControlKeywords,
-  TitleTooLongMarkString: TitleTooLongMarkString
+  TitleTooLongMarkString: TitleTooLongMarkString,
+  addLineNumbersToTokens: addLineNumbersToTokens,
 };
