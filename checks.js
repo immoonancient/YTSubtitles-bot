@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 const Formatter = require('./formatter/formatter.js');
+const JsonSchema = require('jsonschema');
 
 function checkParameters(context, params) {
   const payload = context.payload;
@@ -55,13 +56,130 @@ async function runSubtitleFileCheckOn(context, pull, file) {
     }));
 }
 
+async function runJsonFileCheckOn(context, pull, file) {
+  console.log(`runJsonFileCheckOn ${file.filename}`);
+
+  let jsonFileError = null;
+  const fileJson = await fetch(file.raw_url)
+      .then(r => r.json())
+      .then(
+        json => json,
+        error => {
+          jsonFileError = error;
+          return null;
+        });
+
+  const jsonValidityCheckName = `JSON validity check on ${file.filename}`;
+  context.github.checks.create(checkParameters(
+    context,
+    {
+      name: jsonValidityCheckName,
+      status: 'completed',
+      conclusion: fileJson ? 'success' : 'failure',
+      output: {
+        title: jsonValidityCheckName,
+        summary: `${file.filename} ${fileJson ? 'is' : 'is not'} a valid JSON file`,
+        text: jsonFileError ? jsonFileError.toString() : undefined,
+      }
+    }));
+
+  if (!fileJson)
+    return;
+
+  const jsonSchemaCheckName = `jsonschema validation on ${file.filename}`;
+
+  let instanceJson;
+  let schemaJson;
+
+  if (file.filename.endsWith('.schema.json')) {
+    schemaJson = fileJson;
+
+    const instanceUrl = file.raw_url.substring(0, file.raw_url.length - 'schema.json'.length) + 'json';
+    console.log(`Trying to get json instance file at ${instanceUrl}`);
+
+    try {
+      instanceJson = await fetch(instanceUrl).then(r => r.json());
+    } catch (error) {
+      context.github.checks.create(checkParameters(
+        context,
+        {
+          name: jsonSchemaCheckName,
+          status: 'completed',
+          conclusion: 'cancelled',
+          output: {
+            title: jsonSchemaCheckName,
+            summary: `Could not find matching json instance for schema file ${file.filename}`,
+            text: error.toString(),
+          }
+        }));
+      return;
+    }
+
+  } else {
+    instanceJson = fileJson;
+
+    const schemaUrl = file.raw_url.substring(0, file.raw_url.length - 'json'.length) + 'schema.json';
+    console.log(`Trying to get json schema file at ${schemaUrl}`);
+
+    try {
+      schemaJson = await fetch(schemaUrl).then(r => r.json());
+    } catch (error) {
+      context.github.checks.create(checkParameters(
+        context,
+        {
+          name: jsonSchemaCheckName,
+          status: 'completed',
+          conclusion: 'cancelled',
+          output: {
+            title: jsonSchemaCheckName,
+            summary: `Could not find matching jsonschema for file ${file.filename}`,
+            text: error.toString(),
+          }
+        }));
+      return;
+    }
+
+  }
+
+  const result = JsonSchema.validate(instanceJson, schemaJson);
+
+  if (!result.errors.length) {
+    context.github.checks.create(checkParameters(
+      context,
+      {
+        name: jsonSchemaCheckName,
+        status: 'completed',
+        conclusion: 'success',
+        output: {
+          title: jsonSchemaCheckName,
+          summary: `${jsonSchemaCheckName} passed`
+        }
+      }));
+    return;
+  }
+
+  context.github.checks.create(checkParameters(
+    context,
+    {
+      name: jsonSchemaCheckName,
+      status: 'completed',
+      conclusion: 'failure',
+      output: {
+        title: jsonSchemaCheckName,
+        summary: `${jsonSchemaCheckName} found the following errors`,
+        text: result.errors.map(error => error.toString()).join('\n\n'),
+      }
+    }));
+}
+
 async function runCheckSuiteOn(context, pull) {
   console.log('runCheckSuiteOn ${pull.number}');
   const files = await context.github.pulls.listFiles(context.issue({pull_number: pull.number}));
   files.data.forEach(file => {
     if (file.filename.startsWith('subtitles/'))
       runSubtitleFileCheckOn(context, pull, file);
-    // TODO: Add JSON schema checks for json files in statc/data/
+    if (file.filename.endsWith('.json'))
+      runJsonFileCheckOn(context, pull, file);
   });
 }
 
