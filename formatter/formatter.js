@@ -13,8 +13,9 @@ const Tokenizer = require('./tokenizer.js');
 // - ShiftInstruction
 
 class URL {
-  constructor(url) {
+  constructor(url, tokens) {
     this.url = url;
+    this.tokens = tokens || [];
   }
 
   toString() {
@@ -24,12 +25,12 @@ class URL {
   static parse(tokens) {
     if (!tokens.length || tokens[0].type !== Tokenizer.types.URLToken)
       return [null, tokens];
-    return [new URL(tokens[0].value), tokens.slice(1)];
+    return [new URL(tokens[0].value, [tokens[0]]), tokens.slice(1)];
   }
 };
 
 class Subtitle {
-  constructor(timeline, captions, start) {
+  constructor(timeline, captions, start, tokens) {
     this.timeline = timeline || new Timeline();
     if (!Array.isArray(captions))
       captions = [captions];
@@ -38,6 +39,7 @@ class Subtitle {
     this.engLineStart = start || 0;
     if (this.engLineStart > this.captions.length)
       this.engLineStart = this.captions.length;
+    this.tokens = tokens || [];
   }
 
   // Return value: [parsed_subtitle, remaining_lines]
@@ -82,13 +84,14 @@ class Subtitle {
       return result;
     }
 
-    const timeline = tokens.shift().value;
+    let i = 0;
+    const timeline = tokens[i++].value;
 
     let captions = [];
-    while (tokens.length && tokens[0].type == Tokenizer.types.TextLineToken)
-      captions.push(tokens.shift().value);
+    while (i < tokens.length && tokens[i].type == Tokenizer.types.TextLineToken)
+      captions.push(tokens[i++].value);
     let engLineStart = findFirstEnglishLine(captions);
-    return [new Subtitle(timeline, captions, engLineStart), tokens];
+    return [new Subtitle(timeline, captions, engLineStart, tokens.slice(0, i)), tokens.slice(i)];
   }
 
   toString(format, id) {
@@ -106,8 +109,9 @@ class Subtitle {
 
 
 class CommentSection {
-  constructor(lines) {
+  constructor(lines, tokens) {
     this.lines = lines || [];
+    this.tokens = tokens || []
   }
 
   // Return value: [parsed_comments, remaining_lines]
@@ -118,7 +122,7 @@ class CommentSection {
       comments.push(tokens[i].value);
     if (!comments.length)
       return [null, tokens];
-    return [new CommentSection(comments), tokens.slice(i)];
+    return [new CommentSection(comments, tokens.slice(0, i)), tokens.slice(i)];
   }
 
   toString() {
@@ -127,8 +131,9 @@ class CommentSection {
 };
 
 class TitleSection {
-  constructor(lines) {
+  constructor(lines, tokens) {
     this.lines = lines || [];
+    this.tokens = tokens || [];
     this.tooLong = this.lines.some(line => line.length > 100);
   }
 
@@ -155,7 +160,7 @@ class TitleSection {
 
     if (!lines.length)
       return [null, tokens];
-    return [new TitleSection(lines), tokens.slice(i)];
+    return [new TitleSection(lines, tokens.slice(0, i)), tokens.slice(i)];
   }
 
   toString() {
@@ -178,8 +183,9 @@ class TitleSection {
 };
 
 class DescriptionSection {
-  constructor(sections) {
+  constructor(sections, tokens) {
     this.sections = sections || [];
+    this.tokens = tokens || [];
   }
 
   // Return value: [parsed_section, remaining_lines]
@@ -213,7 +219,7 @@ class DescriptionSection {
 
     if (!lines.length)
       return [null, tokens];
-    return [new DescriptionSection(lines), tokens.slice(i)];
+    return [new DescriptionSection(lines, tokens.slice(0, i)), tokens.slice(i)];
   }
 
   toString() {
@@ -231,8 +237,9 @@ class DescriptionSection {
 };
 
 class ImportInstruction {
-  constructor(path) {
+  constructor(path, tokens) {
     this.path = path;
+    this.tokens = tokens || [];
   }
 
   static parse(tokens) {
@@ -242,7 +249,7 @@ class ImportInstruction {
     const params = tokens[0].controlParameters;
     if (!params.length)
       return [null, tokens];
-    return [new ImportInstruction(params[0]), tokens.slice(1)];
+    return [new ImportInstruction(params[0], tokens.slice(0, 1)), tokens.slice(1)];
   }
 
   toString() {
@@ -251,9 +258,10 @@ class ImportInstruction {
 };
 
 class ShiftInstruction {
-  constructor(direction, delta) {
+  constructor(direction, delta, tokens) {
     this.direction = direction;
     this.delta = delta;
+    this.tokens = tokens || [];
   }
 
   static parse(tokens, format) {
@@ -269,7 +277,7 @@ class ShiftInstruction {
     const [delta, _] = Timestamp.parse(params[1], format);
     if (!delta)
       return [null, tokens];
-    return [new ShiftInstruction(direction, delta), tokens.slice(1)];
+    return [new ShiftInstruction(direction, delta, tokens.slice(0, 1)), tokens.slice(1)];
   }
 
   toString(format) {
@@ -278,13 +286,15 @@ class ShiftInstruction {
 };
 
 class SubtitleStartMark {
-  constructor() {}
+  constructor(tokens) {
+    this.tokens = tokens || [];
+  }
 
   static parse(tokens) {
     if (!tokens.length || tokens[0].type !== Tokenizer.types.ControlToken ||
         tokens[0].controlType !== Tokenizer.controlTypes.Subtitles)
       return [null, tokens];
-    return [new SubtitleStartMark(), tokens.slice(1)];
+    return [new SubtitleStartMark(tokens.slice(0, 1)), tokens.slice(1)];
   }
 
   toString() {
