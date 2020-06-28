@@ -168,3 +168,29 @@ There is a unique local specialty in Guiyang, Guizhou, called ‘Cui Shao’, wh
   const output = Tokenizer.tokenize(input);
   expect(output).toEqual(expected);
 });
+
+test.only('#1217', () => {
+  const input = [
+    '# 标题（翻译主要意思即可，不要超过 100 个字符）',
+    '# 把老家梨树结的果子包起来防止鸟儿来偷吃！偶遇停电怎么办？居然还能继续剪视频！',
+    '# Covering pears with bags to prevent birds! How to edit video during power outage!',
+  ];
+
+  const expected = [
+    new Tokenizer.classes.ControlToken(
+      ['# 标题（翻译主要意思即可，不要超过 100 个字符）'],
+      ['标题']
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ["# 把老家梨树结的果子包起来防止鸟儿来偷吃！偶遇停电怎么办？居然还能继续剪视频！"],
+      "# 把老家梨树结的果子包起来防止鸟儿来偷吃！偶遇停电怎么办？居然还能继续剪视频！"
+    ),
+    new Tokenizer.classes.TextLineToken(
+      ['# Covering pears with bags to prevent birds! How to edit video during power outage!'],
+      '# Covering pears with bags to prevent birds! How to edit video during power outage!'
+    ),
+  ];
+
+  const output = Tokenizer.tokenize(input);
+  expect(output).toEqual(expected);
+});

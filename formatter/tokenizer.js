@@ -211,10 +211,15 @@ class Tokenizer {
 
   _consumeControlToken() {
     const words = trimCommentMark(this.lines[0]).split(' ');
-    if (!Object.entries(ControlKeywords).some(kv => words[0] === kv[1]))
-      return;
-    this._createTokenWithFirstLine(ControlToken, words);
-    return true;
+    if (Object.entries(ControlKeywords).some(kv => words[0] === kv[1])) {
+      this._createTokenWithFirstLine(ControlToken, words);
+      return true;
+    }
+    if (this.lines[0].match(/标题（.*）/)) {
+      this._createTokenWithFirstLine(ControlToken, ['标题']);
+      return true;
+    }
+    return false;
   }
 
   _consumeTitleTooLongMarkToken() {
