@@ -307,7 +307,7 @@ function addRouteCreatePull(router, path) {
       const owner = process.env.REPO_OWNER;
       const repo = req.body.isTest ? process.env.TEST_REPO : process.env.REPO;
       const newBranch = `credits-${req.body.year}${req.body.month}-${Math.floor(Math.random() * 100)}`;
-      const yearMonthStr = `${year}${month.toString().padStart(2, '0')}`;
+      const yearMonthStr = `${year}${(month + 1).toString().padStart(2, '0')}`;
 
       // TODO: Deduplicate pull creation code with index.js
 
