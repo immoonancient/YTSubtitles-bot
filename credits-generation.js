@@ -304,10 +304,10 @@ function addRouteCreatePull(router, path) {
       const context = await createMockContext();
       const channels = req.body.channels || (await Channels.getChannels()).map(c => c.folder);
       const {year, month} = getReqYearAndMonth(req.body);
+      const yearMonthStr = `${year}${(month + 1).toString().padStart(2, '0')}`;
       const owner = process.env.REPO_OWNER;
       const repo = req.body.isTest ? process.env.TEST_REPO : process.env.REPO;
-      const newBranch = `credits-${req.body.year}${req.body.month}-${Math.floor(Math.random() * 100)}`;
-      const yearMonthStr = `${year}${(month + 1).toString().padStart(2, '0')}`;
+      const newBranch = `credits-${yearMonthStr}-${Math.floor(Math.random() * 100)}`;
 
       // TODO: Deduplicate pull creation code with index.js
 
