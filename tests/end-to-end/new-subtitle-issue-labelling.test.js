@@ -1,5 +1,4 @@
 const TestUtils = require('../test-utils.js');
-const nock = require('nock');
 
 beforeEach(TestUtils.beforeEachTest);
 afterEach(TestUtils.afterEachTest);
