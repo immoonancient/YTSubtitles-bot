@@ -583,7 +583,7 @@ People want to ask whether it’s possible not to add baking soda`;
   expect(output).toEqual(expected);
 });
 
-test.only('checkFormat() title length and timeline validity', () => {
+test('checkFormat() title length and timeline validity', () => {
   lines = 
 `# https://youtu.be/n9ncgbVmKN4
 
