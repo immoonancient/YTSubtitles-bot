@@ -1,19 +1,8 @@
-require('dotenv').config();
-
-const nock = require('nock');
+const TestUtils = require('./test-utils.js');
 const Channels = require('../channels.js');
 
-beforeEach(() => {
-  nock.disableNetConnect();
-  nock('https://raw.githubusercontent.com/')
-    .get(`/${process.env.REPO_OWNER}/${process.env.REPO}/master/static/data/channels.json`)
-    .replyWithFile(200, __dirname + '/fixtures/test_channels.json', { 'Content-Type': 'application-json'});
-});
-
-afterEach(() => {
-  nock.cleanAll();
-  nock.enableNetConnect();
-});
+beforeEach(TestUtils.beforeEachTest);
+afterEach(TestUtils.afterEachTest);
 
 test('findChannelFromTitle() #1229', async () => {
   const title = '【美食作家王刚】后厨的深度清洁 - https://youtu.be/ggnKS91ExwA';
