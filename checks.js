@@ -172,6 +172,7 @@ async function runJsonFileCheckOn(context, pull, file) {
     }));
 }
 
+// TODO: This should also be called when new reviews are created.
 async function checkUnresolvedReviewsOn(context, pull) {
   // Use GraphQL because REST doesn't support this
   const graphql = require('./auth.js').graphqlWithAuth();
