@@ -172,8 +172,92 @@ async function runJsonFileCheckOn(context, pull, file) {
     }));
 }
 
+async function checkUnresolvedReviewsOn(context, pull) {
+  // Use GraphQL because REST doesn't support this
+  const graphql = require('./auth.js').graphqlWithAuth();
+
+  function buildQueryString(hasCursor) {
+    return `
+    query reviewCommentThreads($owner: String!, $repo: String!, $number: Int!, ${hasCursor ? '$cursor: String!' : ''}) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          reviews(first: 1) {
+            totalCount
+          }
+          reviewThreads(first: 100, ${hasCursor ? 'after: $cursor' : ''}) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              isResolved
+            }
+          }
+        }
+      }
+    }
+  `};
+
+  const { repository } = await graphql({
+    query: buildQueryString(false),
+    owner: context.payload.repository.owner.login,
+    repo: context.payload.repository.name,
+    number: pull.number,
+  });
+
+  while (repository.pullRequest.reviewThreads.pageInfo.hasNextPage) {
+    const nextPage = await graphql({
+      query: buildQueryString(true),
+      owner: context.payload.repository.owner.login,
+      repo: context.payload.repository.name,
+      number: pull.number,
+      cursor: repository.pullRequest.reviewThreads.pageInfo.endCursor,
+    });
+    repository.pullRequest.reviewThreads.nodes.push(...nextPage.repository.pullRequest.reviewThreads.nodes);
+    repository.pullRequest.reviewThreads.pageInfo = nextPage.repository.pullRequest.reviewThreads.pageInfo;
+  }
+
+  const checkName = 'Check if all review comments are resolved';
+
+  const threads = repository.pullRequest.reviewThreads.nodes;
+  if (!threads.length && !repository.pullRequest.reviews.totalCount) {
+    context.github.checks.create(checkParameters(
+      context,
+      {
+        name: checkName,
+        status: 'completed',
+        conclusion: 'failure',
+        output: {
+          title: checkName,
+          summary: 'Pull request has not been reviewed yet',
+          text: 'Please re-run after the pull request has been reviewed',
+        }
+      }));
+    return;
+  }
+
+  const conclusion = threads.some(thread => !thread.isResolved) ? 'failure' : 'success';
+  const summary = conclusion === 'success' ? 'All review comments have been resolved' : 'Some review comments are not resolved';
+  const text = conclusion === 'success' ? undefined : 'Please re-run after resolving all review comments';
+
+  context.github.checks.create(checkParameters(
+    context,
+    {
+      name: checkName,
+      status: 'completed',
+      conclusion: conclusion,
+      output: {
+        title: checkName,
+        summary: summary,
+        text: text,
+      }
+    }));
+}
+
 async function runCheckSuiteOn(context, pull) {
   console.log('runCheckSuiteOn ${pull.number}');
+  checkUnresolvedReviewsOn(context, pull);
+
   const files = await context.github.pulls.listFiles(context.issue({pull_number: pull.number}));
   files.data.forEach(file => {
     if (file.filename.startsWith('subtitles/'))
