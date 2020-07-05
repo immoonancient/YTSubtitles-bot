@@ -1,25 +1,5 @@
 require('dotenv').config();
 
-async function createMockContext() {
-  const Auth = require('./auth.js');
-  const octokit = await Auth();
-
-  const mockContext = {
-    issue: function(params) {
-      const result = {
-        owner: process.env.REPO_OWNER,
-        repo: process.env.REPO
-      };
-      for (let key in params)
-        result[key] = params[key];
-      return result;
-    },
-
-    github: octokit
-  };
-  return mockContext;
-}
-
 const Channels = require('./channels.js');
 const Utils = require('./utils.js');
 
@@ -76,142 +56,181 @@ class Contribution {
   }
 };
 
-async function listPulls(context, channel, startDate, endDate) {
-  const result = {};
+async function getContributionList(channel, startDate, endDate) {
+  console.log(`getContributionList(${channel.folder}, ${startDate}, ${endDate})`);
 
-  async function handlePull(pull, done) {
-    const labels = pull.labels.map(label => label.name);
-    if (!labels || (await Channels.findChannelFromLabels(labels)) != channel)
-      return;
-    const date = new Date(pull.created_at);
-    if (date >= endDate)
-      return;
-    if (date < startDate) {
-      done();
-      return;
+  function createQueryString(hasCursor) {
+    return `
+    query subtitleIssues($channel: String!, $pageSize: Int!, ${hasCursor ? "$cursor: String!" : ""}) {
+      repository(owner: "immoonancient", name: "YTSubtitles") {
+        pullRequests(labels: [$channel], last: $pageSize, ${hasCursor ? "before: $cursor" : ""}) {
+          pageInfo {
+            startCursor
+            hasPreviousPage
+          }
+          nodes {
+            title
+            number
+            merged
+            createdAt
+            reviews(last: 100) {
+              pageInfo {
+                startCursor
+                hasPreviousPage
+              }
+              nodes {
+                author {
+                  login
+                }
+                state
+                comments(last: 10) {
+                  totalCount
+                }
+              }
+            }
+            timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], last: 20){
+              pageInfo {
+                startCursor
+                hasPreviousPage
+              }
+              nodes {
+                ... on CrossReferencedEvent {
+                  referencedAt
+                  source {
+                    ... on Issue {
+                      number
+                      title
+                      labels(last: 5) {
+                        pageInfo {
+                          hasPreviousPage
+                        }
+                        nodes {
+                          name
+                        }
+                      }
+                      assignees(last: 5) {
+                        pageInfo {
+                          hasPreviousPage
+                        }
+                        nodes {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
-
-    console.log(`Pull request found: #${pull.number} ${date}`);
-    result[pull.number] = pull;
+    `;
   }
 
-  const options = context.github.pulls.list.endpoint.merge({
-        owner: process.env.REPO_OWNER,
-        repo: process.env.REPO,
-        state: 'all'});
-  const allPulls = [];
-  await context.github.paginate(options, (response, done) => {
-    allPulls.push(...response.data.map(pull => handlePull(pull, done)));
+  const graphql = require('./auth.js').graphqlWithAuth();
+
+  const { repository } = await graphql({
+    query: createQueryString(false),
+    channel: channel.label,
+    pageSize: 20,
   });
 
-  await Promise.all(allPulls);
-  console.log('All pull requests listed');
-  return result;
-}
+  while (repository.pullRequests.pageInfo.hasPreviousPage &&
+         new Date(repository.pullRequests.nodes[0].createdAt) >= startDate) {
+    const previousPage = await graphql({
+      query: createQueryString(true),
+      channel: channel.label,
+      pageSize: 20,
+      cursor: repository.pullRequests.pageInfo.startCursor,
+    });
 
-async function matchIssues(context, channel, pulls) {
-  const result = {};
-  async function matchIssue(pull) {
-    const issueNumber = await Utils.getSubtitleIssueNumber(context, pull);
-    if (!issueNumber) {
+    repository.pullRequests.pageInfo = previousPage.repository.pullRequests.pageInfo;
+    repository.pullRequests.nodes.splice(0, 0, ...previousPage.repository.pullRequests.nodes);
+  }
+
+  const pulls = repository.pullRequests.nodes.filter(pull => {
+    const createdAt = new Date(pull.createdAt);
+    if (createdAt < startDate || createdAt >= endDate)
+      return false;
+    if (!pull.reviews || !pull.reviews.nodes.length)
+      return false;
+    if (!pull.merged)
+      return false;
+    pull.timelineItems.nodes = pull.timelineItems.nodes
+      .filter(item => {
+        if (!item.source || !item.source.number)
+          return false;
+        const issue = item.source;
+        if (!issue.labels || !issue.labels.nodes.some(label => label.name === channel.label))
+          return false;
+        return true;
+      });
+    if (!pull.timelineItems.nodes.length) {
       console.log(`Failed to find matching issue number for pull request #${pull.number}`);
-      return;
+      return false;
     }
-    console.log(`Pull #${pull.number} matches issue #${issueNumber}`)
-    const issue = await Utils.getIssue(context, issueNumber);
-    pull.matchedIssue = issue;
-    result[issue.number] = issue;
-  }
-
-  await Promise.all(
-    Object.keys(pulls).map(
-      number => matchIssue(pulls[number])));
-  return result;
-}
-
-function countTranslationContributions(issues, contributions) {
-  for (let number in issues) {
-    const issue = issues[number];
-    const assignees = issue.assignees || issue.assignee || [];
-    for (let assignee of assignees) {
-      const name = assignee.login;
-      if (!contributions[name])
-        contributions[name] = new Contribution(name);
-      contributions[name].addTranslation(number);
+    pull.issue = pull.timelineItems.nodes[0].source;
+    if (!pull.issue.assignees.nodes.length) {
+      console.log(`Pull request #${pull.number} matches issue #${pull.issue.number} but no one is assigned`);
+      return false;
     }
-  }
-}
+    return true;
+  });
 
-async function countReviewContributions(context, pulls, contributions) {
-  async function countReviewsInPull(number) {
-    async function hasValidReviews(reviews) {
-      let commentCount = 0;
-      for (let review of reviews) {
+  for (let pull of pulls) {
+    pull.reviews.nodes = pull.reviews.nodes
+      // Combine multiple reviews of the same author
+      .reduce(
+        (accumulated, review) => {
+          const found = accumulated.find(rev => rev.author.login == review.author.login);
+          if (found) {
+            if (review.state !== 'COMMENTED')
+              found.state = review.state;
+            found.comments.totalCount += review.comments.totalCount;
+            return accumulated;
+          }
+          accumulated.push(review);
+          return accumulated;
+        },
+        []
+      )
+      .filter(review => {
+        const name = review.author.login;
+        // Subtitle authors cannot review their their own pull requests
+        if (pull.issue.assignees.nodes.some(assignee => assignee.login == name))
+          return false;
         // Approvals and changes needed are valid reviews
         if (review.state !== 'COMMENTED')
           return true;
         // Repo owner sometimes does some trivial modifications like formatting
         // Discard his reviews if he didn't explicit state approval
-        if (review.user.login === process.env.REPO_OWNER)
-          continue;
+        if (name === process.env.REPO_OWNER)
+          return false;
         // A rough heuristic: someone with >= 5 comments on a pull request counts as a review
-        const comments = await context.github.pulls.getCommentsForReview(context.issue({pull_number: number, review_id: review.id}));
-        commentCount += comments.data.length;
-      }
-      if (commentCount >= 5)
-        return true;
-      console.log(`User @${reviews[0].user.login} commented on #${number} but doesn't count`);
-      return false;
-    }
-
-    async function collectValidReviews(userReviews) {
-      const name = userReviews[0].user.login;
-      if (name === pulls[number].matchedIssue.assignee.login)
-        return;
-      if (!await hasValidReviews(userReviews))
-        return;
-      if (!contributions[name])
-        contributions[name] = new Contribution(name);
-      contributions[name].addReview(number);
-    }
-
-    const reviews = {};
-    for (let review of await Utils.getReviews(context, number)) {
-      const name = review.user.login;
-      if (!reviews[name])
-        reviews[name] = [];
-      reviews[name].push(review);
-    }
-    await Promise.all(Object.keys(reviews).map(name => collectValidReviews(reviews[name])));
-  }
-
-  await Promise.all(
-    Object
-      .keys(pulls)
-      .filter(number => pulls[number].matchedIssue)
-      .map(number => countReviewsInPull(number)));
-}
-
-async function getContributionList(mockContext, channel, startDate, endDate) {
-  console.log(`getContributionList(${channel.folder}, ${startDate}, ${endDate})`);
-
-  const channelName = channel.label;
-
-  const pulls = await listPulls(mockContext, channel, startDate, endDate);
-  if (!Object.keys(pulls).length) {
-    console.log(`Didn't find any pull for ${channel.folder}`);
-    return [];
-  }
-
-  const issues = await matchIssues(mockContext, channel, pulls);
-  if (!Object.keys(issues).length) {
-    console.log(`Didn't find any issue for ${channel.folder}`);
-    return [];
+        if (review.comments && review.comments.totalCount >= 5)
+          return true;
+        console.log(`User @${name} commented on #${pull.number} but doesn't count`);
+        return false;
+      });
   }
 
   const contributions = {};
-  await countTranslationContributions(issues, contributions);
-  await countReviewContributions(mockContext, pulls, contributions);
+  for (let pull of pulls) {
+    console.log(`Pull #${pull.number} matches issue #${pull.issue.number}`)
+
+    for (let assignee of pull.issue.assignees.nodes) {
+      const name = assignee.login;
+      contributions[name] = contributions[name] || new Contribution(name);
+      contributions[name].addTranslation(pull.issue.number);
+    }
+
+    for (let review of pull.reviews.nodes) {
+      const name = review.author.login;
+      contributions[name] = contributions[name] || new Contribution(name);
+      contributions[name].addReview(pull.number);
+    }
+  }
 
   const contributionList = Object.keys(contributions).map(name => contributions[name]);
 
@@ -221,14 +240,14 @@ async function getContributionList(mockContext, channel, startDate, endDate) {
 }
 
 // Note: monthIndex is 0-based, i.e., January is 0, not 1
-async function createContributionTable(mockContext, channelName, year, monthIndex) {
+async function createContributionTable(channelName, year, monthIndex) {
   console.log(`createContributionTable(${channelName}, ${year}, ${monthIndex})`);
 
   const channel = await Channels.findChannelFromFolder(channelName);
   const startDate = new Date(year, monthIndex);
   const endDate = new Date(year, monthIndex + 1);
 
-  const contributions = await getContributionList(mockContext, channel, startDate, endDate);
+  const contributions = await getContributionList(channel, startDate, endDate);
 
   const result = [];
   result.push(`# ${channel.label} ${year} 年 ${monthIndex + 1} 月贡献统计表`);
@@ -253,8 +272,7 @@ function addRoute(router, path) {
     const endDate = new Date(req.query['end-date']);
     endDate.setDate(endDate.getDate() + 1);
 
-    const mockContext = await createMockContext();
-    const contributions = await getContributionList(mockContext, channel, startDate, endDate);
+    const contributions = await getContributionList(channel, startDate, endDate);
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(contributions);
@@ -269,10 +287,8 @@ function addRouteMarkdown(router, path) {
       return;
     }
 
-    const mockContext = await createMockContext();
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(await createContributionTable(
-      mockContext,
       query['channel'],
       parseInt(query['year']),
       parseInt(query['month'] - 1)));
@@ -300,6 +316,26 @@ function addRouteCreatePull(router, path) {
       return {year: date.getFullYear(), month: date.getMonth()};
     }
 
+    async function createMockContext() {
+      const Auth = require('./auth.js');
+      const octokit = await Auth();
+
+      const mockContext = {
+        issue: function(params) {
+          const result = {
+            owner: process.env.REPO_OWNER,
+            repo: process.env.REPO
+          };
+          for (let key in params)
+            result[key] = params[key];
+          return result;
+        },
+
+        github: octokit
+      };
+      return mockContext;
+    }
+
     try {
       const context = await createMockContext();
       const channels = req.body.channels || (await Channels.getChannels()).map(c => c.folder);
@@ -322,7 +358,7 @@ function addRouteCreatePull(router, path) {
       // Create a new tree with new files, on top of master
       const newFiles = [];
       async function createContributionFile(channel) {
-        const content = await createContributionTable(context, channel, year, month);
+        const content = await createContributionTable(channel, year, month);
         newFiles.push({
           path: `rewards/${channel}/${yearMonthStr}.md`,
           mode: '100644',
