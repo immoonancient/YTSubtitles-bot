@@ -39,6 +39,48 @@ async function removeAllStatusLabels(context, issueNumber) {
   });
 }
 
+async function postHints(context, channel) {
+  function refLink(link) {
+    if (!link)
+      return '';
+    return `[链接](${link})`
+  }
+
+  const hinter = await Hinter.create();
+  const body = context.payload.issue.body;
+  const hints = hinter.getHints(body, channel.folder);
+  if (!hints)
+    return;
+  const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
+  reply.push('| 中文 | English | 备注 | 参考 |');
+  reply.push('| ---- | ------- | ---- | ---- |');
+  for (let hint in hints) {
+    for (let term of hints[hint]) {
+      reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} | ${refLink(term.reference)}`);
+    }
+  }
+  await context.github.issues.createComment(context.issue({ body: reply.join('\n') }));
+}
+
+async function notifySubscriptions(context, channel) {
+  if (!channel.subscriptionIssue)
+    return;
+
+  const body = [
+    '求翻译',
+    '',
+    '```',
+    context.payload.issue.title,
+    '```',
+    `详情见 #${context.payload.issue.number}`,
+  ];
+  await context.github.issues.createComment(
+    context.repo({
+      issue_number: channel.subscriptionIssue,
+      body: body.join('\n')
+    }));
+}
+
 module.exports = app => {
   // Channel and "待翻译" to new issues
   app.on('issues.opened', async context => {
@@ -51,43 +93,23 @@ module.exports = app => {
   });
 
   // Post translation hints if needed
+  // Notify subscribers via the notification subscription issue
   app.on('issues.labeled', async context => {
-    function refLink(link) {
-      if (!link)
-        return '';
-      return `[链接](${link})`
-    }
-
     if (context.payload.issue.pull_request)
       return;
     const label = context.payload.label.name;
     const channel = await Channels.findChannelFromLabels([label]);
     if (!channel)
       return;
-    const hinter = await Hinter.create();
-    const body = context.payload.issue.body;
-    const hints = hinter.getHints(body, channel.folder);
-    if (!hints)
-      return;
-    const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
-    reply.push('| 中文 | English | 备注 | 参考 |');
-    reply.push('| ---- | ------- | ---- | ---- |');
-    for (let hint in hints) {
-      for (let term of hints[hint]) {
-        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} | ${refLink(term.reference)}`);
-      }
-    }
-    context.github.issues.createComment(context.issue({body: reply.join('\n')}));
+
+    await Promise.all([
+      postHints(context, channel),
+      notifySubscriptions(context, channel),
+    ]);
   });
 
   // Post translation hints if needed
   app.on('issue_comment.created', async context => {
-    function refLink(link) {
-      if (!link)
-        return '';
-      return `[链接](${link})`
-    }
-
     if (context.payload.comment.body !== 'bot, please hint')
       return;
     if (context.payload.issue.pull_request)
@@ -96,20 +118,8 @@ module.exports = app => {
     const channel = await Channels.findChannelFromLabels(labels);
     if (!channel)
       return;
-    const hinter = await Hinter.create();
-    const body = context.payload.issue.body;
-    const hints = hinter.getHints(body, channel.folder);
-    if (!hints)
-      return;
-    const reply = ['以下为部分词汇翻译提示，根据[对译表](https://immoonancient.github.io/YTSubtitles/static/translation-table.html)生成', ''];
-    reply.push('| 中文 | English | 备注 | 参考 |');
-    reply.push('| ---- | ------- | ---- | ---- |');
-    for (let hint in hints) {
-      for (let term of hints[hint]) {
-        reply.push(`| ${term.cn} | ${term.en} | ${term.notes || ''} | ${refLink(term.reference)}`);
-      }
-    }
-    context.github.issues.createComment(context.issue({body: reply.join('\n')}));
+
+    await postHints(context, channel);
   });
 
   // When a pull request is opened, and it (1) is a subtitle upload, and (2) mentions an issue when opened,

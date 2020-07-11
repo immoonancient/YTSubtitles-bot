@@ -4,11 +4,12 @@ const source = `https://raw.githubusercontent.com/${process.env.REPO_OWNER}/${pr
 const fetch = require('node-fetch');
 
 class Channel {
-  constructor(label, folder, nicknames, reviewers) {
+  constructor(label, folder, nicknames, reviewers, subscriptionIssue) {
     this.label = label;
     this.folder = folder;
     this.nicknames = nicknames || [];
     this.reviewers = reviewers || [];
+    this.subscriptionIssue = subscriptionIssue;
   }
 
   match(title)  {
@@ -27,7 +28,7 @@ module.exports = function() {
 
   async function refreshChannels() {
     const response = await fetch(source).then(r => r.json());
-    channels = response.map(c => new Channel(c.label, c.folder, c.nicknames, c.reviewers));
+    channels = response.map(c => new Channel(c.label, c.folder, c.nicknames, c.reviewers, c.subscription_issue));
     timestamp = new Date();
   }
 

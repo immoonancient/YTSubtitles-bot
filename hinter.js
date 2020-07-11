@@ -1,4 +1,4 @@
-const source = 'https://immoonancient.github.io/YTSubtitles/static/data/translation-table.json';
+const source = 'https://raw.githubusercontent.com/immoonancient/YTSubtitles/master/static/data/translation-table.json';
 const fetch = require('node-fetch');
 
 class Hinter {

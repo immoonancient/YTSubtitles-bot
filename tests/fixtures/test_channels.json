@@ -3,7 +3,8 @@
     "folder": "wang-gang",
     "label": "美食作家王刚",
     "nicknames": ["王刚", "刚哥"],
-    "reviewers": ["alice"]
+    "reviewers": ["alice"],
+    "subscription_issue": 3
   },
   {
     "folder": "xue-yu",

@@ -9,6 +9,10 @@ function beforeEachTest() {
   nock('https://raw.githubusercontent.com/')
     .get(`/${process.env.REPO_OWNER}/${process.env.REPO}/master/static/data/channels.json`)
     .replyWithFile(200, __dirname + '/fixtures/test_channels.json', { 'Content-Type': 'application-json'});
+
+  nock('https://raw.githubusercontent.com')
+    .get(`/${process.env.REPO_OWNER}/${process.env.REPO}/master/static/data/translation-table.json`)
+    .replyWithFile(200, __dirname + '/fixtures/test_translation_table.json', { 'Content-Type': 'application-json'});
 }
 
 function afterEachTest() {
