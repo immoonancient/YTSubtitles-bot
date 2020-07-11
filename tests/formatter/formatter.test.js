@@ -664,3 +664,47 @@ test('checkFormat() title length and timeline validity', () => {
   const output = Formatter.checkFormat(file, lines, 'srt');
   expect(output).toEqual(expected);
 });
+
+test('checkFormat() #1264', () => {
+  lines = 
+`# https://youtu.be/1V_wXgEq6JY
+
+# 标题
+# 华农兄弟：山上长满了芒草，砍点来做扫把，很实用哦
+# Huanong Brothers: The silvergrass is everywhere on the hill. We chop some and make a broom. It's really nice.
+
+0:00:00.000,0:00:02.060
+# 大家好  家裡的掃把都壞啦
+Hi everyone! My broom at home is broken.
+
+0:00:02.640,0:00:05.320
+# 我們 割點這個芒花  這就個芒花  (註︰標題說是芒草，而這也應該是芒草，芒花應該是他的叫法而已，沒有很好的翻譯，所以不予以配合)
+We're gonna get some this kind of silvergrass, I mean the silvergrass here.`
+    .split('\n');
+
+  const file = { filename: 'subtitles/test.sbv' };
+
+  const expectedConclusion = 'failure';
+  const expectedSummary = 'Found the following format errors';
+  const expectedText = [
+    'Title is too long. Please shrink the title to within 100 characters.',
+  ].join('\n');
+  const expectedAnnotations = [
+    {
+      "annotation_level": "failure",
+      "end_line": 5,
+      "message": "Title translation is too long. Please shrink to within 100 characters.",
+      "start_line": 5,
+    },
+  ];
+
+  const expected = {
+    conclusion: expectedConclusion,
+    summary: expectedSummary,
+    text: expectedText,
+    annotations: expectedAnnotations,
+  };
+
+  const output = Formatter.checkFormat(file, lines, 'sbv');
+  expect(output).toEqual(expected);
+});
