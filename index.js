@@ -233,6 +233,7 @@ module.exports = app => {
     if (!Utils.getVideoIDFromTitle(context.payload.issue.title))
       return;
 
+    const rootPath = `${context.payload.repository.html_url}/blob/master`;
     const user = context.payload.assignee.login;
     const body = [
       `@${user} 谢谢认领！请在 48 小时内完成翻译。`,
@@ -240,9 +241,9 @@ module.exports = app => {
       '完成翻译后，请将完整稿件复制并回复到本 issue。',
       [
         '参考:',
-        '[翻译及投稿步骤](../blob/master/tutorial/upload-subtitles-new.md)',
-        '[翻译守则](../blob/master/docs/guidelines.md#翻译守则)',
-        `[往期翻译](../blob/master/subtitles/${channel.folder}/)`
+        `[翻译及投稿步骤](${rootPath}/tutorial/upload-subtitles-new.md)`,
+        `[翻译守则](${rootPath}/docs/guidelines.md#翻译守则)`,
+        `[往期翻译](${rootPath}/subtitles/${channel.folder}/)`
       ].join(' ')
     ].join('\n');
     context.github.issues.createComment(context.issue({body: body}));
