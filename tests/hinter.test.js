@@ -50,7 +50,7 @@ test('Hinter #788 channel filter', async () => {
     "二伯": [{
       cn: "二伯",
       en: "Er Bai",
-      category: "noun",
+      category: "character",
       channel: "lao-fan-gu"
     }]
   });
